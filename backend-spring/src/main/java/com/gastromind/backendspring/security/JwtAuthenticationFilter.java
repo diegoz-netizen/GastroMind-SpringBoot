@@ -38,9 +38,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Long empleadoId = jwtTokenProvider.getEmpleadoIdFromToken(token);
             Long restauranteId = jwtTokenProvider.getRestauranteIdFromToken(token);
 
-            // Un token valido no basta: el empleado debe seguir ACTIVO en la BD
+            int versionToken = jwtTokenProvider.getVersionTokenFromToken(token);
+
+            // Un token valido no basta: el empleado debe seguir ACTIVO en la BD y el token debe ser
+            // posterior a su ultimo cambio de contrasena (HL-035)
             boolean activo = empleadoId != null && empleadoRepository.findById(empleadoId)
-                    .map(empleado -> "ACTIVO".equalsIgnoreCase(empleado.getEstado()))
+                    .map(empleado -> "ACTIVO".equalsIgnoreCase(empleado.getEstado())
+                            && versionToken == empleado.getVersionToken())
                     .orElse(false);
 
             if (activo) {

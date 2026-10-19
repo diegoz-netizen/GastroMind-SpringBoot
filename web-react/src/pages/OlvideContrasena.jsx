@@ -28,8 +28,12 @@ function OlvideContrasena() {
       const response = await axios.post(API_URL, { correo: correo.trim() });
       setMensaje(response.data.mensaje);
     } catch (err) {
-      if (err.response && err.response.status === 400) {
-        setError('El formato del correo es inválido.');
+      const data = err.response?.data;
+      if (data?.error === 'VALIDACION') {
+        setError(data.campos?.correo || data.mensaje);
+      } else if (err.response) {
+        // HL-035: 429 DEMASIADAS_SOLICITUDES y cualquier otro error traen su mensaje (HL-014)
+        setError(data?.mensaje || 'Ocurrió un error al procesar la solicitud.');
       } else {
         setError('No se pudo conectar con el servidor. Verifica que el backend esté corriendo.');
       }

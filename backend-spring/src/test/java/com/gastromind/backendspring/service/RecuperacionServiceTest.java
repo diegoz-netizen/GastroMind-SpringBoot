@@ -25,6 +25,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class RecuperacionServiceTest {
 
+    private static final String IP = "10.0.0.1";
+
     @Mock
     private EmpleadoRepository empleadoRepository;
 
@@ -45,7 +47,8 @@ class RecuperacionServiceTest {
         RecuperacionProperties properties = new RecuperacionProperties();
         properties.setExpiracionMinutos(15);
         properties.setUrlRestablecer("http://localhost:5173/restablecer");
-        service = new RecuperacionService(empleadoRepository, tokenRepository, passwordEncoder, correoService, properties);
+        service = new RecuperacionService(empleadoRepository, tokenRepository, passwordEncoder, correoService, properties,
+                new LimiteSolicitudes());
 
         activo = Empleado.builder().id(1L).nombreCompleto("Ana Mozo").correo("ana@test.com")
                 .passwordHash("hash-viejo").estado("ACTIVO").build();
@@ -60,7 +63,7 @@ class RecuperacionServiceTest {
     void solicitar_EmpleadoActivo_DeberiaGuardarSoloElHashYEnviarElEnlace() {
         when(empleadoRepository.findByCorreo("ana@test.com")).thenReturn(Optional.of(activo));
 
-        service.solicitar("ana@test.com");
+        service.solicitar("ana@test.com", IP);
 
         ArgumentCaptor<TokenRecuperacion> guardado = ArgumentCaptor.forClass(TokenRecuperacion.class);
         verify(tokenRepository).findByEmpleadoIdAndUsadoEnIsNull(1L);
@@ -81,7 +84,7 @@ class RecuperacionServiceTest {
         when(empleadoRepository.findByCorreo("ana@test.com")).thenReturn(Optional.of(activo));
         when(tokenRepository.findByEmpleadoIdAndUsadoEnIsNull(1L)).thenReturn(java.util.List.of(anterior));
 
-        service.solicitar("ana@test.com");
+        service.solicitar("ana@test.com", IP);
 
         assertNotNull(anterior.getUsadoEn());
     }
@@ -90,7 +93,7 @@ class RecuperacionServiceTest {
     void solicitar_CorreoInexistente_NoDeberiaEnviarNiGuardarNada() {
         when(empleadoRepository.findByCorreo("nadie@test.com")).thenReturn(Optional.empty());
 
-        assertDoesNotThrow(() -> service.solicitar("nadie@test.com"));
+        assertDoesNotThrow(() -> service.solicitar("nadie@test.com", IP));
         verifyNoInteractions(tokenRepository, correoService);
     }
 
@@ -99,7 +102,7 @@ class RecuperacionServiceTest {
         activo.setEstado("INACTIVO");
         when(empleadoRepository.findByCorreo("ana@test.com")).thenReturn(Optional.of(activo));
 
-        service.solicitar("ana@test.com");
+        service.solicitar("ana@test.com", IP);
         verifyNoInteractions(tokenRepository, correoService);
     }
 
@@ -108,7 +111,7 @@ class RecuperacionServiceTest {
         when(empleadoRepository.findByCorreo("ana@test.com")).thenReturn(Optional.of(activo));
         doThrow(new RuntimeException("SMTP caído")).when(correoService).enviar(anyString(), anyString(), anyString());
 
-        assertDoesNotThrow(() -> service.solicitar("ana@test.com"));
+        assertDoesNotThrow(() -> service.solicitar("ana@test.com", IP));
     }
 
     @Test
@@ -159,5 +162,32 @@ class RecuperacionServiceTest {
 
         assertThrows(ResponseStatusException.class, () -> service.restablecer("token-valido", "nueva123"));
         assertEquals("hash-viejo", activo.getPasswordHash());
+    }
+
+    @Test
+    void solicitar_CuartaVezMismoCorreo_DeberiaResponder429SinEnviar() {
+        when(empleadoRepository.findByCorreo("ana@test.com")).thenReturn(Optional.of(activo));
+        for (int i = 0; i < 3; i++) {
+            service.solicitar("ana@test.com", IP);
+        }
+        reset(correoService);
+
+        // Mayúsculas y espacios cuentan como el mismo correo
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> service.solicitar(" ANA@test.com ", "10.0.0.2"));
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, ex.getStatusCode());
+        verifyNoInteractions(correoService);
+    }
+
+    @Test
+    void solicitar_UnaIpConMuchosCorreos_DeberiaResponder429() {
+        for (int i = 0; i < 10; i++) {
+            service.solicitar("nadie" + i + "@test.com", IP);
+        }
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> service.solicitar("otro@test.com", IP));
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, ex.getStatusCode());
+        assertDoesNotThrow(() -> service.solicitar("otro@test.com", "10.0.0.2"));
     }
 }

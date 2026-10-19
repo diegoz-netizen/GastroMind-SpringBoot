@@ -18,6 +18,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
@@ -25,6 +27,7 @@ import java.util.HexFormat;
 /**
  * HU-04: recuperar la contraseña desde el correo.
  * - solicitar(): responde siempre igual (exista o no el correo) para no revelar qué correos están registrados.
+ *   HL-035: con demasiadas solicitudes por correo o por IP responde 429, también igual exista o no el correo.
  * - restablecer(): CA-04, el enlace caduca y solo se usa una vez.
  */
 @Service
@@ -33,27 +36,34 @@ public class RecuperacionService {
     private static final Logger log = LoggerFactory.getLogger(RecuperacionService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
     static final String ENLACE_INVALIDO = "El enlace no es válido o ya caducó. Solicita uno nuevo.";
+    static final String DEMASIADAS_SOLICITUDES =
+            "Hiciste demasiadas solicitudes. Espera unos minutos e intenta de nuevo.";
 
     private final EmpleadoRepository empleadoRepository;
     private final TokenRecuperacionRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final CorreoService correoService;
     private final RecuperacionProperties properties;
+    private final LimiteSolicitudes limite;
 
     public RecuperacionService(EmpleadoRepository empleadoRepository,
                                TokenRecuperacionRepository tokenRepository,
                                PasswordEncoder passwordEncoder,
                                CorreoService correoService,
-                               RecuperacionProperties properties) {
+                               RecuperacionProperties properties,
+                               LimiteSolicitudes limite) {
         this.empleadoRepository = empleadoRepository;
         this.tokenRepository = tokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.correoService = correoService;
         this.properties = properties;
+        this.limite = limite;
     }
 
     @Transactional
-    public void solicitar(String correo) {
+    public void solicitar(String correo, String ip) {
+        verificarLimite(correo.trim().toLowerCase(), ip);
+
         Empleado empleado = empleadoRepository.findByCorreo(correo.trim()).orElse(null);
         // Correo inexistente o cuenta inactiva (HU-03): no se envía nada, pero la respuesta es la misma
         if (empleado == null || !EstadoEmpleado.ACTIVO.name().equals(empleado.getEstado())) {
@@ -97,7 +107,20 @@ public class RecuperacionService {
         }
 
         empleado.setPasswordHash(passwordEncoder.encode(nuevaContrasena));
+        // HL-035: las sesiones abiertas con la contraseña anterior dejan de valer
+        empleado.setVersionToken(empleado.getVersionToken() + 1);
         recuperacion.setUsadoEn(ahora);
+    }
+
+    // Se cuentan las dos claves siempre: si se cortara en la primera, la IP no sumaría cuando falla el correo
+    private void verificarLimite(String correo, String ip) {
+        Instant ahora = Instant.now();
+        Duration ventana = Duration.ofMinutes(properties.getVentanaLimiteMinutos());
+        boolean porCorreo = limite.permitir("correo:" + correo, properties.getMaxPorCorreo(), ventana, ahora);
+        boolean porIp = limite.permitir("ip:" + ip, properties.getMaxPorIp(), ventana, ahora);
+        if (!porCorreo || !porIp) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, DEMASIADAS_SOLICITUDES);
+        }
     }
 
     private static String generarToken() {

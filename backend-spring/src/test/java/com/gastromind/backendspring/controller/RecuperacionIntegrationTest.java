@@ -3,7 +3,9 @@ package com.gastromind.backendspring.controller;
 import com.gastromind.backendspring.entity.Empleado;
 import com.gastromind.backendspring.entity.Restaurante;
 import com.gastromind.backendspring.entity.Rol;
+import com.gastromind.backendspring.exception.CodigoError;
 import com.gastromind.backendspring.service.CorreoService;
+import com.gastromind.backendspring.service.LimiteSolicitudes;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,8 +50,12 @@ class RecuperacionIntegrationTest {
     @MockitoBean
     private CorreoService correoService;
 
+    @Autowired
+    private LimiteSolicitudes limite;
+
     @BeforeEach
     void setUp() {
+        limite.limpiar();
         Restaurante restaurante = Restaurante.builder().nombre("Restaurante Test").build();
         Rol mozo = Rol.builder().nombre("MOZO").build();
         entityManager.persist(restaurante);
@@ -119,6 +126,31 @@ class RecuperacionIntegrationTest {
         verifyNoInteractions(correoService);
     }
 
+    private String loginYLeerJwt(String password) throws Exception {
+        String respuesta = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"correo\":\"ana@test.com\",\"password\":\"" + password + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return respuesta.split("\"token\":\"")[1].split("\"")[0];
+    }
+
+    // Ana es MOZO: con un JWT válido /api/empleados responde 403 (autenticada, sin permiso); con uno inválido, 401
+    private void usarJwt(String jwt, int estadoEsperado) throws Exception {
+        mockMvc.perform(get("/api/empleados").header("Authorization", "Bearer " + jwt))
+                .andExpect(status().is(estadoEsperado));
+    }
+
+    @Test
+    void cambiarLaContrasena_DeberiaInvalidarLosJwtAnteriores() throws Exception {
+        String jwtViejo = loginYLeerJwt("vieja123");
+        usarJwt(jwtViejo, 403);
+
+        restablecer(pedirEnlaceYLeerToken(), 200);
+
+        usarJwt(jwtViejo, 401);
+        usarJwt(loginYLeerJwt("nueva123"), 403);
+    }
+
     @Test
     void contrasenaCorta_DeberiaResponder400() throws Exception {
         String token = pedirEnlaceYLeerToken();
@@ -127,5 +159,23 @@ class RecuperacionIntegrationTest {
                         .content("{\"token\":\"" + token + "\",\"nuevaContrasena\":\"123\"}"))
                 .andExpect(status().isBadRequest());
         login("vieja123", 200);
+    }
+
+    // HL-035: el límite responde igual exista o no el correo, para no revelar cuáles están registrados
+    @Test
+    void cuartaSolicitudDelMismoCorreo_DeberiaResponder429() throws Exception {
+        for (String correo : new String[]{"ana@test.com", "nadie@test.com"}) {
+            for (int i = 0; i < 3; i++) {
+                mockMvc.perform(post("/api/auth/recuperar").contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"correo\":\"" + correo + "\"}"))
+                        .andExpect(status().isOk());
+            }
+            mockMvc.perform(post("/api/auth/recuperar").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"correo\":\"" + correo + "\"}"))
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(jsonPath("$.error").value(CodigoError.DEMASIADAS_SOLICITUDES))
+                    .andExpect(jsonPath("$.mensaje").isString());
+        }
+        verify(correoService, times(3)).enviar(eq("ana@test.com"), anyString(), anyString());
     }
 }

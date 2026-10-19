@@ -71,7 +71,7 @@ Sin credenciales el backend arranca igual; el envío falla, se registra en el lo
 
 ## 🗃️ Base de datos
 
-Tabla nueva en [`token_recuperacion.sql`](token_recuperacion.sql), ejecutar después de `docs/script_database.sql`. Con `ddl-auto=update` Hibernate también la crea.
+Tabla nueva `token_recuperacion`, incluida en [`docs/script_database.sql`](../script_database.sql). Para una BD creada antes del 14/10: [`docs/migraciones/002_tablas_HU03_HU04.sql`](../migraciones/002_tablas_HU03_HU04.sql) (HL-037). No depender de `ddl-auto=update`: `EsquemaScriptTest` falla si una entidad no tiene su tabla en el script.
 
 ## 🧪 Pruebas
 

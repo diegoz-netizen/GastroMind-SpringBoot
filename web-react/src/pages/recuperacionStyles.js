@@ -60,6 +60,10 @@ export const styles = {
     fontSize: '14px',
     border: '1px solid #f5c6cb',
   },
+  fieldError: {
+    fontSize: '12px',
+    color: '#d93025',
+  },
   success: {
     margin: '0',
     padding: '10px 12px',

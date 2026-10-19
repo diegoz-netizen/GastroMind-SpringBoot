@@ -32,7 +32,7 @@ Spring y Django responden todos los errores igual (`GlobalExceptionHandler` aqu�
 {"error": "VALIDACION", "mensaje": "Hay campos con errores.", "campos": {"correo": "El formato del correo es inválido"}}
 ```
 
-`error` es uno de: `VALIDACION` (400, con `campos`) · `SOLICITUD_INVALIDA` (400) · `NO_AUTENTICADO` (401) · `SIN_PERMISO` (403) · `NO_ENCONTRADO` (404) · `METODO_NO_PERMITIDO` (405) · `CONFLICTO` (409) · `ERROR_INTERNO` (500, sin detalles internos). Las pantallas muestran `mensaje` y, en los de validación, cada texto de `campos` debajo de su campo.
+`error` es uno de: `VALIDACION` (400, con `campos`) · `SOLICITUD_INVALIDA` (400) · `NO_AUTENTICADO` (401) · `SIN_PERMISO` (403) · `NO_ENCONTRADO` (404) · `METODO_NO_PERMITIDO` (405) · `CONFLICTO` (409) · `DEMASIADAS_SOLICITUDES` (429, límite de `/api/auth/recuperar`) · `ERROR_INTERNO` (500, sin detalles internos). Las pantallas muestran `mensaje` y, en los de validación, cada texto de `campos` debajo de su campo.
 
 ## Flujo de trabajo
 

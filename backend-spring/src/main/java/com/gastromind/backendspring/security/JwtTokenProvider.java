@@ -30,6 +30,7 @@ public class JwtTokenProvider {
                 .claim("usuario_id", empleado.getId())
                 .claim("rol_id", empleado.getRol().getId())
                 .claim("restaurante_id", empleado.getRestaurante().getId())
+                .claim("version_token", empleado.getVersionToken())
                 .setIssuedAt(ahora)
                 .setExpiration(fechaExpiracion)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -61,6 +62,12 @@ public class JwtTokenProvider {
     public Long getRestauranteIdFromToken(String token) {
         Claims claims = getClaims(token);
         return claims.get("restaurante_id", Long.class);
+    }
+
+    /** Tokens emitidos antes de HL-035 no traen el claim: cuentan como versión 0. */
+    public int getVersionTokenFromToken(String token) {
+        Integer version = getClaims(token).get("version_token", Integer.class);
+        return version != null ? version : 0;
     }
 
     public String getCorreoFromToken(String token) {

@@ -122,7 +122,7 @@ backend-spring/src/main/java/com/gastromind/backendspring/
 
 backend-spring/src/test/java/.../service/PersonalServiceTest.java
 web-react/src/pages/Empleados.jsx
-docs/HU-03/      README.md · historial_estado_empleado.sql
+docs/HU-03/      README.md
 ```
 
 **Decisiones de diseño**
@@ -133,7 +133,7 @@ docs/HU-03/      README.md · historial_estado_empleado.sql
 
 ## 🛢️ Base de datos
 
-Nueva tabla, en [`historial_estado_empleado.sql`](./historial_estado_empleado.sql). Se ejecuta después de `docs/script_database.sql`:
+Nueva tabla `historial_estado_empleado`, incluida en [`docs/script_database.sql`](../script_database.sql). Para una BD creada antes del 14/10: [`docs/migraciones/002_tablas_HU03_HU04.sql`](../migraciones/002_tablas_HU03_HU04.sql) (HL-037):
 
 ```mermaid
 erDiagram

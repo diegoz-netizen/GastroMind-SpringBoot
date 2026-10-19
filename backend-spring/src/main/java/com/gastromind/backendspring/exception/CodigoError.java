@@ -15,6 +15,7 @@ public final class CodigoError {
     public static final String NO_ENCONTRADO = "NO_ENCONTRADO";
     public static final String METODO_NO_PERMITIDO = "METODO_NO_PERMITIDO";
     public static final String CONFLICTO = "CONFLICTO";
+    public static final String DEMASIADAS_SOLICITUDES = "DEMASIADAS_SOLICITUDES";
     public static final String ERROR_INTERNO = "ERROR_INTERNO";
 
     private CodigoError() {
@@ -28,6 +29,7 @@ public final class CodigoError {
             case 404 -> NO_ENCONTRADO;
             case 405 -> METODO_NO_PERMITIDO;
             case 409 -> CONFLICTO;
+            case 429 -> DEMASIADAS_SOLICITUDES;
             default -> status.is5xxServerError() ? ERROR_INTERNO : SOLICITUD_INVALIDA;
         };
     }

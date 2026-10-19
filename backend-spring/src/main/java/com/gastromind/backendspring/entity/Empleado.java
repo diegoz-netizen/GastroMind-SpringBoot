@@ -1,6 +1,7 @@
 package com.gastromind.backendspring.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnDefault;
 import lombok.*;
 import java.time.LocalDateTime;
 
@@ -43,6 +44,12 @@ public class Empleado {
 
     @Column(name = "fecha_registro", nullable = false, updatable = false)
     private LocalDateTime fechaRegistro;
+
+    // HL-035: va en el JWT; al cambiar la contraseña sube y los tokens anteriores dejan de valer
+    @Builder.Default
+    @ColumnDefault("0")
+    @Column(name = "version_token", nullable = false)
+    private Integer versionToken = 0;
 
     @PrePersist
     protected void onCreate() {

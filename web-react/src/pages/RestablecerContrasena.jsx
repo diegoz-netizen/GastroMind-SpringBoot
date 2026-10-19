@@ -15,11 +15,13 @@ function RestablecerContrasena() {
   const [confirmacion, setConfirmacion] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
+  const [erroresCampo, setErroresCampo] = useState({});
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setErroresCampo({});
 
     if (nuevaContrasena.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres.');
@@ -35,8 +37,15 @@ function RestablecerContrasena() {
       const response = await axios.post(API_URL, { token, nuevaContrasena });
       setMensaje(response.data.mensaje);
     } catch (err) {
-      if (err.response && err.response.status === 400) {
-        setError('El enlace no es válido o ya caducó. Solicita uno nuevo.');
+      const data = err.response?.data;
+      // HL-038: un 400 de validación trae {error: 'VALIDACION', campos} (HL-014); solo el resto es enlace inválido
+      if (data?.error === 'VALIDACION') {
+        const campos = data.campos || {};
+        setErroresCampo(campos);
+        // El token va oculto en la URL: su error se muestra arriba
+        if (campos.token || !campos.nuevaContrasena) setError(campos.token || data.mensaje);
+      } else if (err.response) {
+        setError(data?.mensaje || 'El enlace no es válido o ya caducó. Solicita uno nuevo.');
       } else {
         setError('No se pudo conectar con el servidor. Verifica que el backend esté corriendo.');
       }
@@ -86,6 +95,9 @@ function RestablecerContrasena() {
                 style={styles.input}
                 autoComplete="new-password"
               />
+              {erroresCampo.nuevaContrasena && (
+                <span style={styles.fieldError}>{erroresCampo.nuevaContrasena}</span>
+              )}
             </div>
 
             <div style={styles.field}>

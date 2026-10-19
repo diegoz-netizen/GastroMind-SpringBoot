@@ -3,6 +3,7 @@ package com.gastromind.backendspring.controller;
 import com.gastromind.backendspring.dto.RecuperarRequest;
 import com.gastromind.backendspring.dto.RestablecerRequest;
 import com.gastromind.backendspring.service.RecuperacionService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,8 +27,9 @@ public class RecuperacionController {
     }
 
     @PostMapping("/recuperar")
-    public ResponseEntity<Map<String, String>> recuperar(@Valid @RequestBody RecuperarRequest request) {
-        recuperacionService.solicitar(request.correo());
+    public ResponseEntity<Map<String, String>> recuperar(@Valid @RequestBody RecuperarRequest request,
+                                                         HttpServletRequest http) {
+        recuperacionService.solicitar(request.correo(), http.getRemoteAddr());
         return ResponseEntity.ok(Map.of("mensaje", MENSAJE_SOLICITUD));
     }
 
