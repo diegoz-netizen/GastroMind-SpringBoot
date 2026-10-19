@@ -6,9 +6,10 @@ import com.gastromind.backendspring.entity.Empleado;
 import com.gastromind.backendspring.entity.Rol;
 import com.gastromind.backendspring.repository.EmpleadoRepository;
 import com.gastromind.backendspring.repository.RolRepository;
+import com.gastromind.backendspring.service.CorreoService;
 import com.gastromind.backendspring.service.EmpleadoService;
-// Importa EmailService si tu compañero ya lo integró
-// import com.gastromind.backendspring.service.EmailService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,17 +19,21 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class EmpleadoServiceImpl implements EmpleadoService {
 
+    private static final Logger log = LoggerFactory.getLogger(EmpleadoServiceImpl.class);
+
     private final EmpleadoRepository empleadoRepository;
     private final RolRepository rolRepository;
     private final PasswordEncoder passwordEncoder;
-    // private final EmailService emailService; // Descomentar si aplica
+    private final CorreoService correoService;
 
     public EmpleadoServiceImpl(EmpleadoRepository empleadoRepository,
                                RolRepository rolRepository,
-                               PasswordEncoder passwordEncoder) {
+                               PasswordEncoder passwordEncoder,
+                               CorreoService correoService) {
         this.empleadoRepository = empleadoRepository;
         this.rolRepository = rolRepository;
         this.passwordEncoder = passwordEncoder;
+        this.correoService = correoService;
     }
 
     @Override
@@ -79,13 +84,23 @@ public class EmpleadoServiceImpl implements EmpleadoService {
 
         Empleado guardado = empleadoRepository.save(nuevo);
 
-        /* Si tu compañero implementó el envío del correo de bienvenida:
+        // CA-01: la bienvenida lleva las credenciales iniciales; se pide cambiarlas con HU-04
+        String pin = request.pinAcceso() != null && !request.pinAcceso().isBlank()
+                ? "PIN de acceso: " + request.pinAcceso() + "\n"
+                : "";
         try {
-            emailService.enviarCorreoBienvenida(guardado.getCorreo(), guardado.getNombreCompleto(), request.password(), request.pinAcceso());
-        } catch (Exception e) {
-            // Log de advertencia sin interrumpir la creación
+            correoService.enviar(guardado.getCorreo(), "GastroMind - Bienvenido",
+                    "Hola " + guardado.getNombreCompleto() + ",\n\n"
+                            + "Ya tienes cuenta en GastroMind como " + rol.getNombre() + ".\n\n"
+                            + "Tus credenciales iniciales:\n"
+                            + "Correo: " + guardado.getCorreo() + "\n"
+                            + "Contraseña: " + request.password() + "\n"
+                            + pin + "\n"
+                            + "Por seguridad, cámbiala con \"¿Olvidaste tu contraseña?\" en la pantalla de inicio.");
+        } catch (RuntimeException e) {
+            // El empleado ya quedó registrado: un fallo del correo no cambia la respuesta
+            log.error("No se pudo enviar el correo de bienvenida al empleado {}", guardado.getId(), e);
         }
-        */
 
         return new EmpleadoResponse(
                 guardado.getId(),

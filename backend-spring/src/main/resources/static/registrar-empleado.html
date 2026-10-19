@@ -92,7 +92,19 @@
 <div class="card">
     <h2>Registrar Nuevo Empleado</h2>
 
-    <form id="formRegistrarEmpleado">
+    <form id="formLogin">
+        <div class="form-group">
+            <label for="adminCorreo">Correo del administrador *</label>
+            <input type="email" id="adminCorreo" required>
+        </div>
+        <div class="form-group">
+            <label for="adminPassword">Contraseña *</label>
+            <input type="password" id="adminPassword" required>
+        </div>
+        <button type="submit" id="btnLogin">Iniciar sesión</button>
+    </form>
+
+    <form id="formRegistrarEmpleado" style="display: none;">
         <div class="form-group">
             <label for="nombreCompleto">Nombre Completo *</label>
             <input type="text" id="nombreCompleto" placeholder="Ej. Carlos Mendoza" required>
@@ -119,7 +131,7 @@
                 <option value="">-- Seleccionar Rol --</option>
                 <option value="2">Cocinero</option>
                 <option value="3">Almacenero</option>
-                <option value="4">Cajero</option>
+                <option value="4">Mozo</option>
             </select>
         </div>
 
@@ -130,10 +142,38 @@
 </div>
 
 <script>
-    const API_URL = 'http://localhost:8080/api/empleados';
+    const API_URL = '/api/empleados';
+    let tokenAdmin = null;
 
-    // Tu token JWT activo
-    const tokenAdmin = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbkBnYXN0cm9taW5kLmNvbSIsInVzdWFyaW9faWQiOjEsInJvbF9pZCI6MSwicmVzdGF1cmFudGVfaWQiOjEsImlhdCI6MTc5MjEzNzg3NSwiZXhwIjoxNzkyMjI0Mjc1fQ.3TfeOMpNZgTcfNw3GTjIFr1RY7vqRtV7kgfJQbBt9Uk';
+    document.getElementById('formLogin').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const alertBox = document.getElementById('mensajeAlerta');
+        alertBox.style.display = 'none';
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    correo: document.getElementById('adminCorreo').value.trim(),
+                    password: document.getElementById('adminPassword').value
+                })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                tokenAdmin = data.token;
+                document.getElementById('formLogin').style.display = 'none';
+                document.getElementById('formRegistrarEmpleado').style.display = 'block';
+            } else {
+                alertBox.className = 'alert alert-error';
+                alertBox.innerText = `❌ Error (${response.status}): ${data.mensaje || 'No se pudo iniciar sesión'}`;
+                alertBox.style.display = 'block';
+            }
+        } catch (error) {
+            alertBox.className = 'alert alert-error';
+            alertBox.innerText = '❌ Error de conexión con el servidor Spring Boot.';
+            alertBox.style.display = 'block';
+        }
+    });
 
     document.getElementById('formRegistrarEmpleado').addEventListener('submit', async (e) => {
         e.preventDefault();
