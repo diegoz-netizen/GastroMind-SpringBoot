@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Empleados from './pages/Empleados';
+import RegistrarEmpleado from './pages/RegistrarEmpleado';
 import Insumos from './pages/Insumos';
 import OlvideContrasena from './pages/OlvideContrasena';
 import RestablecerContrasena from './pages/RestablecerContrasena';
@@ -31,6 +32,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Empleados />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/empleados/nuevo"
+        element={
+          <PrivateRoute>
+            <RegistrarEmpleado />
           </PrivateRoute>
         }
       />
