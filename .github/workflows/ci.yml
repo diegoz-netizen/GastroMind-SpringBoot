@@ -41,6 +41,61 @@ jobs:
           chmod +x ./mvnw
           ./mvnw clean verify -Dspring.profiles.active=test
 
+  esquema:
+    # Punto 4 de la Planning 2: crea la BD SOLO con los scripts del repo y arranca Spring con
+    # ddl-auto=validate. Falla si una entidad no coincide con script_database.sql o si una
+    # migración no deja la BD igual que el script.
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: BD nueva desde script_database.sql + seed_demo.sql
+        run: |
+          createdb gm_esquema
+          psql -v ON_ERROR_STOP=1 -q -d gm_esquema -f docs/script_database.sql
+          psql -v ON_ERROR_STOP=1 -q -d gm_esquema -f docs/seed_demo.sql
+
+      - name: Las migraciones se pueden correr de nuevo sin error
+        run: |
+          for m in docs/migraciones/*.sql; do psql -v ON_ERROR_STOP=1 -q -d gm_esquema -f "$m"; done
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Spring con ddl-auto=validate contra esa BD
+        working-directory: ./backend-spring
+        env:
+          ESQUEMA_DB_URL: jdbc:postgresql://localhost:5432/gm_esquema
+          ESQUEMA_DB_USER: postgres
+          ESQUEMA_DB_PASSWORD: postgres
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B test -Dspring.profiles.active=test -Dtest=EsquemaPostgresTest -Dsurefire.failIfNoSpecifiedTests=false
+
   frontend-lint:
     runs-on: ubuntu-latest
 

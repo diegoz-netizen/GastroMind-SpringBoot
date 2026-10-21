@@ -2,6 +2,7 @@ package com.gastromind.backendspring.config;
 
 import com.gastromind.backendspring.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -58,10 +59,16 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Páginas web que pueden llamar a la API desde el navegador (CORS), para toda la API.
+     * Se leen de gastromind.cors.allowed-origins: en desarrollo solo el React de Vite (5173);
+     * en producción se pone ahí el dominio real, sin tocar el código.
+     */
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${gastromind.cors.allowed-origins:http://localhost:5173}") String[] origenesPermitidos) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173", "http://localhost:5174"));
+        config.setAllowedOrigins(List.of(origenesPermitidos));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);

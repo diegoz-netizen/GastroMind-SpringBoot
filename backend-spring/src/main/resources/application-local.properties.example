@@ -4,7 +4,7 @@ spring.datasource.username=postgres
 spring.datasource.password=TU_PASSWORD_AQUI
 
 # Configuración Hibernate / JPA
-spring.jpa.hibernate.ddl-auto=update
+# Sin ddl-auto aquí: vale el validate de application.properties (si se pone update, lo pisa).
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 
