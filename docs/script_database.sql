@@ -5,22 +5,22 @@
 
 -- ---------- RESTAURANTE ----------
 CREATE TABLE restaurante (
-    id              SERIAL PRIMARY KEY,
+    id              BIGSERIAL PRIMARY KEY,
     nombre          VARCHAR(150) NOT NULL
 );
 
 -- ---------- ROL ----------
 CREATE TABLE rol (
-    id              SERIAL PRIMARY KEY,
+    id              BIGSERIAL PRIMARY KEY,
     nombre          VARCHAR(50) NOT NULL UNIQUE
         CHECK (nombre IN ('ADMINISTRADOR', 'COCINERO', 'ALMACENERO', 'MOZO'))
 );
 
 -- ---------- EMPLEADO ----------
 CREATE TABLE empleado (
-    id                  SERIAL PRIMARY KEY,
-    restaurante_id      INT NOT NULL REFERENCES restaurante(id),
-    rol_id              INT NOT NULL REFERENCES rol(id),
+    id                  BIGSERIAL PRIMARY KEY,
+    restaurante_id      BIGINT NOT NULL REFERENCES restaurante(id),
+    rol_id              BIGINT NOT NULL REFERENCES rol(id),
     nombre_completo     VARCHAR(150) NOT NULL,
     correo              VARCHAR(150) NOT NULL UNIQUE,
     password_hash       VARCHAR(255) NOT NULL,
@@ -33,19 +33,19 @@ CREATE TABLE empleado (
 
 -- ---------- HISTORIAL_ESTADO_EMPLEADO (HU-03) ----------
 CREATE TABLE historial_estado_empleado (
-    id               SERIAL PRIMARY KEY,
-    empleado_id      INT NOT NULL REFERENCES empleado(id),
+    id               BIGSERIAL PRIMARY KEY,
+    empleado_id      BIGINT NOT NULL REFERENCES empleado(id),
     estado_anterior  VARCHAR(20) NOT NULL CHECK (estado_anterior IN ('ACTIVO', 'INACTIVO')),
     estado_nuevo     VARCHAR(20) NOT NULL CHECK (estado_nuevo IN ('ACTIVO', 'INACTIVO')),
-    cambiado_por     INT NOT NULL REFERENCES empleado(id),
+    cambiado_por     BIGINT NOT NULL REFERENCES empleado(id),
     fecha_cambio     TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- ---------- TOKEN_RECUPERACION (HU-04) ----------
 -- CA-04: el enlace caduca y es de un solo uso. Se guarda el SHA-256 del token, nunca el token.
 CREATE TABLE token_recuperacion (
-    id           SERIAL PRIMARY KEY,
-    empleado_id  INT NOT NULL REFERENCES empleado(id),
+    id           BIGSERIAL PRIMARY KEY,
+    empleado_id  BIGINT NOT NULL REFERENCES empleado(id),
     token_hash   VARCHAR(64) NOT NULL UNIQUE,
     expira_en    TIMESTAMP NOT NULL,
     usado_en     TIMESTAMP,                     -- NULL = sin usar
@@ -54,15 +54,15 @@ CREATE TABLE token_recuperacion (
 
 -- ---------- CATEGORIA ----------
 CREATE TABLE categoria (
-    id              SERIAL PRIMARY KEY,
-    restaurante_id  INT NOT NULL REFERENCES restaurante(id),
+    id              BIGSERIAL PRIMARY KEY,
+    restaurante_id  BIGINT NOT NULL REFERENCES restaurante(id),
     nombre          VARCHAR(100) NOT NULL          -- Platos, Bebidas, Postres, Regalos
 );
 
 -- ---------- PRODUCTO ----------
 CREATE TABLE producto (
-    id                  SERIAL PRIMARY KEY,
-    categoria_id        INT NOT NULL REFERENCES categoria(id),
+    id                  BIGSERIAL PRIMARY KEY,
+    categoria_id        BIGINT NOT NULL REFERENCES categoria(id),
     nombre              VARCHAR(150) NOT NULL,
     precio              DECIMAL(10,2) NOT NULL CHECK (precio >= 0),
     requiere_receta     BOOLEAN NOT NULL DEFAULT TRUE,
@@ -74,8 +74,8 @@ CREATE TABLE producto (
 -- CRITICO multi-tenant: cada insumo pertenece a UN restaurante. Sin esto,
 -- el stock de un restaurante se mezclaria con el de otro.
 CREATE TABLE ingrediente (
-    id                  SERIAL PRIMARY KEY,
-    restaurante_id      INT NOT NULL REFERENCES restaurante(id),
+    id                  BIGSERIAL PRIMARY KEY,
+    restaurante_id      BIGINT NOT NULL REFERENCES restaurante(id),
     nombre              VARCHAR(150) NOT NULL,
     unidad_medida       VARCHAR(20) NOT NULL,       -- g, ml, unidades, kg, l
     stock_actual        DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -94,17 +94,17 @@ CREATE TABLE ingrediente (
 
 -- ---------- RECETA_DETALLE (BOM) ----------
 CREATE TABLE receta_detalle (
-    id                  SERIAL PRIMARY KEY,
-    producto_id         INT NOT NULL REFERENCES producto(id),
-    ingrediente_id      INT NOT NULL REFERENCES ingrediente(id),
+    id                  BIGSERIAL PRIMARY KEY,
+    producto_id         BIGINT NOT NULL REFERENCES producto(id),
+    ingrediente_id      BIGINT NOT NULL REFERENCES ingrediente(id),
     cantidad_requerida  DECIMAL(10,3) NOT NULL CHECK (cantidad_requerida > 0),
     UNIQUE (producto_id, ingrediente_id)            -- evita insumo repetido en la misma receta
 );
 
 -- ---------- MESA ----------
 CREATE TABLE mesa (
-    id              SERIAL PRIMARY KEY,
-    restaurante_id  INT NOT NULL REFERENCES restaurante(id),
+    id              BIGSERIAL PRIMARY KEY,
+    restaurante_id  BIGINT NOT NULL REFERENCES restaurante(id),
     numero          INT NOT NULL,
     estado          VARCHAR(20) NOT NULL DEFAULT 'LIBRE'
         CHECK (estado IN ('LIBRE', 'OCUPADA', 'CERRADA')),
@@ -114,8 +114,8 @@ CREATE TABLE mesa (
 -- ---------- PROVEEDOR ----------
 -- CRITICO multi-tenant: cada restaurante gestiona su propia lista de proveedores.
 CREATE TABLE proveedor (
-    id              SERIAL PRIMARY KEY,
-    restaurante_id  INT NOT NULL REFERENCES restaurante(id),
+    id              BIGSERIAL PRIMARY KEY,
+    restaurante_id  BIGINT NOT NULL REFERENCES restaurante(id),
     nombre          VARCHAR(150) NOT NULL,
     contacto        VARCHAR(150)
 );
@@ -125,9 +125,9 @@ CREATE TABLE proveedor (
 -- Con dos proveedores del mismo insumo se sugiere el de menor costo total (CA-22).
 -- Proveedor e insumo deben ser del mismo restaurante (trigger mas abajo).
 CREATE TABLE proveedor_insumo (
-    id                  SERIAL PRIMARY KEY,
-    proveedor_id        INT NOT NULL REFERENCES proveedor(id),
-    ingrediente_id      INT NOT NULL REFERENCES ingrediente(id),
+    id                  BIGSERIAL PRIMARY KEY,
+    proveedor_id        BIGINT NOT NULL REFERENCES proveedor(id),
+    ingrediente_id      BIGINT NOT NULL REFERENCES ingrediente(id),
     precio_unitario     DECIMAL(10,2) NOT NULL CHECK (precio_unitario > 0),
     tiempo_entrega_dias INT NOT NULL CHECK (tiempo_entrega_dias >= 0),
     UNIQUE (proveedor_id, ingrediente_id)           -- un precio vigente por proveedor e insumo
@@ -137,8 +137,8 @@ CREATE TABLE proveedor_insumo (
 -- Catalogo configurable en vez de CHECK fijo: motivos globales del sistema
 -- (restaurante_id NULL) mas motivos propios que cada restaurante puede agregar.
 CREATE TABLE motivo_merma (
-    id              SERIAL PRIMARY KEY,
-    restaurante_id  INT REFERENCES restaurante(id),   -- NULL = motivo global disponible para todos
+    id              BIGSERIAL PRIMARY KEY,
+    restaurante_id  BIGINT REFERENCES restaurante(id),   -- NULL = motivo global disponible para todos
     nombre          VARCHAR(50) NOT NULL,
     es_global       BOOLEAN NOT NULL DEFAULT FALSE,
     UNIQUE (restaurante_id, nombre)
@@ -146,9 +146,9 @@ CREATE TABLE motivo_merma (
 
 -- ---------- PEDIDO ----------
 CREATE TABLE pedido (
-    id              SERIAL PRIMARY KEY,
-    mesa_id         INT NOT NULL REFERENCES mesa(id),
-    empleado_id     INT NOT NULL REFERENCES empleado(id),   -- creado_por: rol Mozo
+    id              BIGSERIAL PRIMARY KEY,
+    mesa_id         BIGINT NOT NULL REFERENCES mesa(id),
+    empleado_id     BIGINT NOT NULL REFERENCES empleado(id),   -- creado_por: rol Mozo
     estado          VARCHAR(20) NOT NULL DEFAULT 'ABIERTO'
         CHECK (estado IN ('ABIERTO', 'EN_PREPARACION', 'SERVIDO', 'CERRADO')),
     fecha_registro  TIMESTAMP NOT NULL DEFAULT NOW()
@@ -156,9 +156,9 @@ CREATE TABLE pedido (
 
 -- ---------- PEDIDO_DETALLE ----------
 CREATE TABLE pedido_detalle (
-    id              SERIAL PRIMARY KEY,
-    pedido_id       INT NOT NULL REFERENCES pedido(id) ON DELETE CASCADE,
-    producto_id     INT NOT NULL REFERENCES producto(id),
+    id              BIGSERIAL PRIMARY KEY,
+    pedido_id       BIGINT NOT NULL REFERENCES pedido(id) ON DELETE CASCADE,
+    producto_id     BIGINT NOT NULL REFERENCES producto(id),
     cantidad        INT NOT NULL CHECK (cantidad > 0),
     estado          VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE'
         CHECK (estado IN ('PENDIENTE', 'EN_PREPARACION', 'LISTO', 'SERVIDO', 'ANULADO'))
@@ -166,20 +166,20 @@ CREATE TABLE pedido_detalle (
 
 -- ---------- REGISTRO_MERMA ----------
 CREATE TABLE registro_merma (
-    id              SERIAL PRIMARY KEY,
-    empleado_id     INT NOT NULL REFERENCES empleado(id),   -- creado_por: Cocinero/Almacenero
-    ingrediente_id  INT NOT NULL REFERENCES ingrediente(id),
+    id              BIGSERIAL PRIMARY KEY,
+    empleado_id     BIGINT NOT NULL REFERENCES empleado(id),   -- creado_por: Cocinero/Almacenero
+    ingrediente_id  BIGINT NOT NULL REFERENCES ingrediente(id),
     cantidad        DECIMAL(10,2) NOT NULL CHECK (cantidad > 0),
-    motivo_id       INT NOT NULL REFERENCES motivo_merma(id),
+    motivo_id       BIGINT NOT NULL REFERENCES motivo_merma(id),
     fecha_registro  TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- ---------- REGISTRO_INGRESO_PROVEEDOR ----------
 CREATE TABLE registro_ingreso_proveedor (
-    id                  SERIAL PRIMARY KEY,
-    empleado_id         INT NOT NULL REFERENCES empleado(id),   -- creado_por: Almacenero
-    proveedor_id        INT NOT NULL REFERENCES proveedor(id),
-    ingrediente_id      INT NOT NULL REFERENCES ingrediente(id),
+    id                  BIGSERIAL PRIMARY KEY,
+    empleado_id         BIGINT NOT NULL REFERENCES empleado(id),   -- creado_por: Almacenero
+    proveedor_id        BIGINT NOT NULL REFERENCES proveedor(id),
+    ingrediente_id      BIGINT NOT NULL REFERENCES ingrediente(id),
     lote                VARCHAR(50),
     fecha_vencimiento   DATE,                       -- HU-16: NULL = no perecible; alerta 3 dias antes
     cantidad_recibida   DECIMAL(10,2) NOT NULL CHECK (cantidad_recibida > 0),
@@ -189,9 +189,9 @@ CREATE TABLE registro_ingreso_proveedor (
 
 -- ---------- CONTEO_CICLICO ----------
 CREATE TABLE conteo_ciclico (
-    id                          SERIAL PRIMARY KEY,
-    empleado_id                 INT NOT NULL REFERENCES empleado(id),   -- creado_por: Almacenero
-    ingrediente_id              INT NOT NULL REFERENCES ingrediente(id),
+    id                          BIGSERIAL PRIMARY KEY,
+    empleado_id                 BIGINT NOT NULL REFERENCES empleado(id),   -- creado_por: Almacenero
+    ingrediente_id              BIGINT NOT NULL REFERENCES ingrediente(id),
     cantidad_fisica_contada     DECIMAL(10,2) NOT NULL,
     fecha_registro              TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -204,8 +204,8 @@ CREATE TABLE conteo_ciclico (
 CREATE OR REPLACE FUNCTION fn_valida_receta_mismo_restaurante()
 RETURNS TRIGGER AS $$
 DECLARE
-    restaurante_producto INT;
-    restaurante_ingrediente INT;
+    restaurante_producto BIGINT;
+    restaurante_ingrediente BIGINT;
 BEGIN
     SELECT c.restaurante_id INTO restaurante_producto
     FROM producto p JOIN categoria c ON p.categoria_id = c.id
@@ -229,8 +229,8 @@ CREATE TRIGGER trg_receta_mismo_restaurante
 CREATE OR REPLACE FUNCTION fn_valida_proveedor_insumo_mismo_restaurante()
 RETURNS TRIGGER AS $$
 DECLARE
-    restaurante_proveedor INT;
-    restaurante_ingrediente INT;
+    restaurante_proveedor BIGINT;
+    restaurante_ingrediente BIGINT;
 BEGIN
     SELECT restaurante_id INTO restaurante_proveedor
     FROM proveedor WHERE id = NEW.proveedor_id;
