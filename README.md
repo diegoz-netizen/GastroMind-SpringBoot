@@ -42,6 +42,7 @@ flowchart LR
 - **Un solo login:** Spring emite el JWT (`POST /api/auth/login`) y Django lo valida con el mismo secreto.
 - **Un solo esquema:** las tablas se crean con `docs/script_database.sql` y `docs/migraciones/`; ningún backend las crea ni las altera.
 - **Modelo de datos (MER, 18 tablas):** [`docs/modelo_datos.md`](docs/modelo_datos.md).
+- **Cronograma (Gantt de los 4 sprints):** [`docs/cronograma.md`](docs/cronograma.md).
 
 ## Cómo correrlo
 
