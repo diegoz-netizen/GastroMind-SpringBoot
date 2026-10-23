@@ -285,7 +285,10 @@ function Carta() {
                         ) : (
                           <>
                             {soles(platillo.margen)}
-                            <span style={styles.porcentaje}>{platillo.porcentaje_costo} % en insumos</span>
+                            {/* La API lo manda null si el precio es 0 (la BD lo permite): no se muestra */}
+                            {platillo.porcentaje_costo != null && (
+                              <span style={styles.porcentaje}>{platillo.porcentaje_costo} % en insumos</span>
+                            )}
                           </>
                         )}
                       </td>
