@@ -11,9 +11,11 @@ import com.gastromind.backendspring.service.impl.EmpleadoServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -21,6 +23,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,6 +38,9 @@ class EmpleadoServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private CorreoService correoService;
 
     @InjectMocks
     private EmpleadoServiceImpl empleadoService;
@@ -86,6 +93,117 @@ class EmpleadoServiceTest {
         assertEquals("ACTIVO", response.estado());
         assertEquals("COCINERO", response.rol());
         verify(empleadoRepository, times(1)).save(any(Empleado.class));
+    }
+
+    private EmpleadoRegistroRequest requestValido() {
+        return new EmpleadoRegistroRequest(
+                "Carlos Perez", "carlos@restaurante.com", "password123", 2L, "1234"
+        );
+    }
+
+    private void prepararRegistroValido() {
+        when(empleadoRepository.findById(1L)).thenReturn(Optional.of(adminMock));
+        when(empleadoRepository.existsByCorreo("carlos@restaurante.com")).thenReturn(false);
+        when(rolRepository.findById(2L)).thenReturn(Optional.of(rolMock));
+        when(empleadoRepository.save(any(Empleado.class))).thenAnswer(invocation -> {
+            Empleado e = invocation.getArgument(0);
+            e.setId(10L);
+            return e;
+        });
+    }
+
+    @Test
+    void registrarEmpleado_GuardaPasswordYPinConHash() {
+        prepararRegistroValido();
+        when(passwordEncoder.encode("password123")).thenReturn("hashPassword");
+        when(passwordEncoder.encode("1234")).thenReturn("hashPin");
+
+        empleadoService.registrarEmpleado(requestValido(), "1");
+
+        ArgumentCaptor<Empleado> captor = ArgumentCaptor.forClass(Empleado.class);
+        verify(empleadoRepository).save(captor.capture());
+        assertEquals("hashPassword", captor.getValue().getPasswordHash());
+        assertEquals("hashPin", captor.getValue().getPinAcceso());
+        assertEquals(restauranteMock, captor.getValue().getRestaurante());
+    }
+
+    @Test
+    void registrarEmpleado_SinPin_NoGuardaPin() {
+        prepararRegistroValido();
+        EmpleadoRegistroRequest request = new EmpleadoRegistroRequest(
+                "Carlos Perez", "carlos@restaurante.com", "password123", 2L, null
+        );
+
+        empleadoService.registrarEmpleado(request, "1");
+
+        ArgumentCaptor<Empleado> captor = ArgumentCaptor.forClass(Empleado.class);
+        verify(empleadoRepository).save(captor.capture());
+        assertNull(captor.getValue().getPinAcceso());
+    }
+
+    @Test
+    void registrarEmpleado_NoAdmin_Lanza403() {
+        Rol rolCocinero = new Rol();
+        rolCocinero.setNombre("COCINERO");
+        adminMock.setRol(rolCocinero);
+        when(empleadoRepository.findById(1L)).thenReturn(Optional.of(adminMock));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
+                empleadoService.registrarEmpleado(requestValido(), "1")
+        );
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+        verify(empleadoRepository, never()).save(any(Empleado.class));
+    }
+
+    @Test
+    void registrarEmpleado_AdminInactivo_Lanza401() {
+        adminMock.setEstado("INACTIVO");
+        when(empleadoRepository.findById(1L)).thenReturn(Optional.of(adminMock));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
+                empleadoService.registrarEmpleado(requestValido(), "1")
+        );
+        assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
+    }
+
+    @Test
+    void registrarEmpleado_RolInexistente_Lanza400() {
+        when(empleadoRepository.findById(1L)).thenReturn(Optional.of(adminMock));
+        when(empleadoRepository.existsByCorreo("carlos@restaurante.com")).thenReturn(false);
+        when(rolRepository.findById(2L)).thenReturn(Optional.empty());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
+                empleadoService.registrarEmpleado(requestValido(), "1")
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verify(empleadoRepository, never()).save(any(Empleado.class));
+    }
+
+    @Test
+    void registrarEmpleado_EnviaBienvenidaConCredencialesIniciales() {
+        prepararRegistroValido();
+
+        empleadoService.registrarEmpleado(requestValido(), "1");
+
+        ArgumentCaptor<String> cuerpo = ArgumentCaptor.forClass(String.class);
+        verify(correoService).enviar(eq("carlos@restaurante.com"), anyString(), cuerpo.capture());
+        assertTrue(cuerpo.getValue().contains("Carlos Perez"));
+        assertTrue(cuerpo.getValue().contains("COCINERO"));
+        assertTrue(cuerpo.getValue().contains("carlos@restaurante.com"));
+        assertTrue(cuerpo.getValue().contains("password123"));
+        assertTrue(cuerpo.getValue().contains("PIN de acceso: 1234"));
+    }
+
+    @Test
+    void registrarEmpleado_FallaElCorreo_IgualRegistra() {
+        prepararRegistroValido();
+        doThrow(new RuntimeException("SMTP caído")).when(correoService)
+                .enviar(anyString(), anyString(), anyString());
+
+        EmpleadoResponse response = empleadoService.registrarEmpleado(requestValido(), "1");
+
+        assertEquals(10L, response.id());
+        verify(empleadoRepository).save(any(Empleado.class));
     }
 
     @Test
