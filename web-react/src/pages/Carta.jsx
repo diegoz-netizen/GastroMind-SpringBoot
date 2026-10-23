@@ -261,6 +261,8 @@ function Carta() {
                   <th style={styles.th}>Categoría</th>
                   <th style={styles.th}>Platillo</th>
                   <th style={styles.thNum}>Precio</th>
+                  <th style={styles.thNum}>Costo</th>
+                  <th style={styles.thNum}>Margen</th>
                   <th style={styles.th}>Receta</th>
                   <th style={styles.th}>Estado</th>
                   {esAdmin && <th style={styles.th}></th>}
@@ -269,13 +271,35 @@ function Carta() {
               <tbody>
                 {visibles.map((platillo) => {
                   const activo = platillo.estado === 'ACTIVO';
+                  // HU-08: sin su receta, el costo no está completo (saldría 0)
+                  const faltaReceta = platillo.requiere_receta && platillo.detalles_receta.length === 0;
                   return (
                     <tr key={platillo.id} style={activo ? undefined : styles.filaInactiva}>
                       <td style={styles.td}>{platillo.categoria_nombre}</td>
                       <td style={styles.td}>{platillo.nombre}</td>
                       <td style={styles.tdNum}>{soles(platillo.precio)}</td>
+                      <td style={styles.tdNum}>{faltaReceta ? '—' : soles(platillo.costo)}</td>
+                      <td style={{ ...styles.tdNum, ...(Number(platillo.margen) < 0 ? styles.margenNegativo : {}) }}>
+                        {faltaReceta ? (
+                          '—'
+                        ) : (
+                          <>
+                            {soles(platillo.margen)}
+                            {/* La API lo manda null si el precio es 0 (la BD lo permite): no se muestra */}
+                            {platillo.porcentaje_costo != null && (
+                              <span style={styles.porcentaje}>{platillo.porcentaje_costo} % en insumos</span>
+                            )}
+                          </>
+                        )}
+                      </td>
                       <td style={styles.td}>
-                        {platillo.requiere_receta ? `${platillo.detalles_receta.length} insumo(s)` : 'No lleva'}
+                        {!platillo.requiere_receta ? (
+                          'No lleva'
+                        ) : faltaReceta ? (
+                          <span style={styles.faltaReceta}>Falta la receta</span>
+                        ) : (
+                          `${platillo.detalles_receta.length} insumo(s)`
+                        )}
                       </td>
                       <td style={styles.td}>
                         <span style={activo ? styles.badgeActivo : styles.badgeInactivo}>
@@ -313,7 +337,7 @@ const styles = {
     padding: '40px 20px',
   },
   card: {
-    maxWidth: '900px',
+    maxWidth: '1040px',
     margin: '0 auto',
     backgroundColor: '#ffffff',
     padding: '32px',
@@ -457,6 +481,18 @@ const styles = {
     borderBottom: '1px solid #f1f3f4',
     whiteSpace: 'nowrap',
     textAlign: 'right',
+  },
+  porcentaje: {
+    display: 'block',
+    fontSize: '12px',
+    color: '#5f6368',
+  },
+  margenNegativo: {
+    color: '#d93025',
+  },
+  faltaReceta: {
+    color: '#b06000',
+    fontWeight: '500',
   },
   filaInactiva: {
     opacity: 0.6,
