@@ -17,6 +17,33 @@ Este repo es la **fuente común** de los otros dos:
 
 Detalle en la sección 7 del [Documento Técnico](docs/GastroMind%20—%20Documento%20Técnico%20y%20de%20Proceso%20(2).md).
 
+## Arquitectura
+
+```mermaid
+flowchart LR
+  subgraph Clientes
+    WEB["web-react (este repo)"]
+    APP["App Kotlin (desde el Sprint 3)"]
+  end
+  subgraph Backends
+    SPR["backend-spring<br/>login, empleados, pedidos, stock"]
+    DJ["GastroMind-Django<br/>catálogo, mermas, reportes, IA"]
+  end
+  DB[("PostgreSQL<br/>una sola BD")]
+
+  WEB -->|"HTTP/JSON + JWT"| SPR
+  WEB -->|"HTTP/JSON + JWT"| DJ
+  APP -->|"HTTP/JSON + JWT"| SPR
+  DJ -.->|"valida el JWT de Spring"| SPR
+  SPR --> DB
+  DJ --> DB
+```
+
+- **Un solo login:** Spring emite el JWT (`POST /api/auth/login`) y Django lo valida con el mismo secreto.
+- **Un solo esquema:** las tablas se crean con `docs/script_database.sql` y `docs/migraciones/`; ningún backend las crea ni las altera.
+- **Modelo de datos (MER, 18 tablas):** [`docs/modelo_datos.md`](docs/modelo_datos.md).
+- **Cronograma (Gantt de los 4 sprints):** [`docs/cronograma.md`](docs/cronograma.md).
+
 ## Cómo correrlo
 
 - **Base de datos:** cargar `docs/script_database.sql` y luego `docs/seed_demo.sql`.
