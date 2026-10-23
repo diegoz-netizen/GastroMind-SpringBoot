@@ -2,12 +2,12 @@ package com.gastromind.backendspring.config;
 
 import com.gastromind.backendspring.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,6 +27,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final HandlerExceptionResolver resolver;
 
+    // HL-014: los 401/403 de Spring Security pasan por GlobalExceptionHandler, igual que los demás errores
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                           @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
@@ -36,18 +37,6 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return (web) -> web.ignoring().requestMatchers(
-                "/registrar-empleado.html",
-                "/*.html",
-                "/static/**",
-                "/css/**",
-                "/js/**",
-                "/favicon.ico"
-        );
     }
 
     @Bean
@@ -70,10 +59,16 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Páginas web que pueden llamar a la API desde el navegador (CORS), para toda la API.
+     * Se leen de gastromind.cors.allowed-origins: en desarrollo solo el React de Vite (5173);
+     * en producción se pone ahí el dominio real, sin tocar el código.
+     */
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${gastromind.cors.allowed-origins:http://localhost:5173}") String[] origenesPermitidos) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedOrigins(List.of(origenesPermitidos));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);
