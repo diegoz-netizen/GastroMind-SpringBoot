@@ -80,9 +80,14 @@ function Empleados() {
               {auth.nombreCompleto} · {auth.rol}
             </p>
           </div>
-          <button onClick={cerrarSesion} style={styles.logoutButton}>
-            Cerrar sesion
-          </button>
+          <div style={styles.headerButtons}>
+            <button onClick={() => navigate('/empleados/nuevo')} style={styles.registrarButton}>
+              Registrar empleado
+            </button>
+            <button onClick={cerrarSesion} style={styles.logoutButton}>
+              Cerrar sesion
+            </button>
+          </div>
         </div>
 
         {error && <p style={styles.error}>{error}</p>}
@@ -162,6 +167,19 @@ const styles = {
     alignItems: 'flex-start',
     gap: '16px',
     marginBottom: '20px',
+  },
+  headerButtons: {
+    display: 'flex',
+    gap: '8px',
+  },
+  registrarButton: {
+    padding: '8px 14px',
+    fontSize: '14px',
+    backgroundColor: '#1a73e8',
+    color: '#ffffff',
+    border: '1px solid #1a73e8',
+    borderRadius: '4px',
+    cursor: 'pointer',
   },
   title: {
     margin: '0 0 8px 0',

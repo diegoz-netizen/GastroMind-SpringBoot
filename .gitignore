@@ -23,3 +23,7 @@
 hs_err_pid*
 replay_pid*
 .idea/
+
+# Archivo de propiedades locales con claves sensibles
+application-local.properties
+**/application-local.properties
