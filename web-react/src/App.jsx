@@ -6,6 +6,7 @@ import Empleados from './pages/Empleados';
 import RegistrarEmpleado from './pages/RegistrarEmpleado';
 import Insumos from './pages/Insumos';
 import Carta from './pages/Carta';
+import Receta from './pages/Receta';
 import OlvideContrasena from './pages/OlvideContrasena';
 import RestablecerContrasena from './pages/RestablecerContrasena';
 
@@ -57,6 +58,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Carta />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/carta/:id/receta"
+        element={
+          <PrivateRoute>
+            <Receta />
           </PrivateRoute>
         }
       />

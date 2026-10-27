@@ -293,12 +293,14 @@ function Carta() {
                         )}
                       </td>
                       <td style={styles.td}>
+                        {/* HU-06: desde aquí se abre la receta del platillo (el admin la arma; el resto solo la ve) */}
                         {!platillo.requiere_receta ? (
                           'No lleva'
-                        ) : faltaReceta ? (
-                          <span style={styles.faltaReceta}>Falta la receta</span>
                         ) : (
-                          `${platillo.detalles_receta.length} insumo(s)`
+                          <button onClick={() => navigate(`/carta/${platillo.id}/receta`)}
+                            style={{ ...styles.linkButton, ...styles.recetaLink, ...(faltaReceta ? styles.faltaReceta : {}) }}>
+                            {faltaReceta ? 'Falta la receta' : `${platillo.detalles_receta.length} insumo(s)`}
+                          </button>
                         )}
                       </td>
                       <td style={styles.td}>
@@ -489,6 +491,10 @@ const styles = {
   },
   margenNegativo: {
     color: '#d93025',
+  },
+  recetaLink: {
+    padding: 0,
+    textDecoration: 'underline',
   },
   faltaReceta: {
     color: '#b06000',
