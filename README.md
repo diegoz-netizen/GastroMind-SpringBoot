@@ -8,7 +8,7 @@ El proyecto usa **tres repositorios** (desde el 12/10/2026) y **una sola base de
 | Repositorio | Contenido |
 |---|---|
 | **GastroMind** (este) | `backend-spring/` (Spring Boot: login, empleados, pedidos, stock) · `web-react/` (web) · `docs/` · CI |
-| [GastroMind-Django](https://github.com/diegoz-netizen/GastroMind-Django) | Backend analítico: catálogo, mermas, reportes e IA |
+| [GastroMind-Django](https://github.com/diegoz-netizen/GastroMind-Django) | Backend analítico: catálogo, kardex y alertas, análisis de mermas, reportes e IA |
 | [GastroMind-Kotlin](https://github.com/diegoz-netizen/GastroMind-Kotlin) | App móvil (mozo, cocinero, almacenero) |
 
 Este repo es la **fuente común** de los otros dos:
@@ -26,20 +26,24 @@ flowchart LR
     APP["App Kotlin (desde el Sprint 3)"]
   end
   subgraph Backends
-    SPR["backend-spring<br/>login, empleados, pedidos, stock"]
-    DJ["GastroMind-Django<br/>catálogo, mermas, reportes, IA"]
+    SPR["backend-spring<br/>login, empleados, pedidos,<br/>stock y registro de mermas"]
+    DJ["GastroMind-Django<br/>catálogo, kardex y alertas,<br/>análisis de mermas, reportes, IA"]
   end
+  SEC{{"Secreto JWT compartido<br/>(variable de entorno)"}}
   DB[("PostgreSQL<br/>una sola BD")]
 
   WEB -->|"HTTP/JSON + JWT"| SPR
   WEB -->|"HTTP/JSON + JWT"| DJ
   APP -->|"HTTP/JSON + JWT"| SPR
-  DJ -.->|"valida el JWT de Spring"| SPR
+  APP -->|"HTTP/JSON + JWT"| DJ
+  SPR -.->|"firma el JWT"| SEC
+  DJ -.->|"verifica el JWT"| SEC
   SPR --> DB
   DJ --> DB
 ```
 
-- **Un solo login:** Spring emite el JWT (`POST /api/auth/login`) y Django lo valida con el mismo secreto.
+- **Un solo login:** Spring emite el JWT (`POST /api/auth/login`). Django lo verifica por su cuenta con el mismo secreto, sin llamar a Spring; por eso no hay flecha entre los dos backends.
+- **Quién escribe y quién lee:** Spring registra la operación del día (pedidos, movimientos de stock y mermas, HU-13, HU-14, HU-17 y HU-18). Django lee esas tablas para el kardex (HU-15), las alertas (HU-16) y el análisis de mermas (HU-19 y HU-20).
 - **Un solo esquema:** las tablas se crean con `docs/script_database.sql` y `docs/migraciones/`; ningún backend las crea ni las altera.
 - **Modelo de datos (MER, 18 tablas):** [`docs/modelo_datos.md`](docs/modelo_datos.md).
 - **Cronograma (Gantt de los 4 sprints):** [`docs/cronograma.md`](docs/cronograma.md).

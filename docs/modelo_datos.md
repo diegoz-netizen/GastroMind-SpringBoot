@@ -25,7 +25,7 @@ PostgreSQL 16, **una sola BD** para Spring y Django. Todas las tablas cuelgan de
 | `motivo_merma` | Catálogo global + propio | HU-17 | 4 |
 | `registro_merma` | Mermas reportadas | HU-17 a HU-19 | 4 |
 
-El **kardex** no es una tabla aparte: es `ingrediente.stock_actual` más sus movimientos (`registro_ingreso_proveedor`, `registro_merma` y lo servido en `pedido_detalle` × `receta_detalle`).
+**Kardex (Sprint 3):** se suma una tabla de movimientos de inventario, con su migración en `migraciones/`. Spring la escribe junto con `ingrediente.stock_actual` cuando se sirve un platillo (HU-13), entra una compra (HU-14) o se registra una merma (HU-17), y Django la lee para el kardex (HU-15) y las alertas (HU-16). Hasta que entre, el stock vive solo en `ingrediente.stock_actual`.
 
 ## Diagrama entidad-relación
 
@@ -34,6 +34,7 @@ erDiagram
   restaurante ||--o{ empleado : tiene
   rol ||--o{ empleado : asigna
   empleado ||--o{ historial_estado_empleado : "cambia de estado"
+  empleado ||--o{ historial_estado_empleado : "hace el cambio (cambiado_por)"
   empleado ||--o{ token_recuperacion : pide
   restaurante ||--o{ categoria : tiene
   categoria ||--o{ producto : agrupa
@@ -70,10 +71,12 @@ erDiagram
     bigint id PK
     bigint restaurante_id FK
     bigint rol_id FK
+    varchar nombre_completo
     varchar correo UK
     varchar password_hash
     varchar pin_acceso "hash, opcional"
     varchar estado "ACTIVO INACTIVO"
+    timestamp fecha_registro
     int version_token
   }
   historial_estado_empleado {
@@ -82,6 +85,7 @@ erDiagram
     bigint cambiado_por FK
     varchar estado_anterior
     varchar estado_nuevo
+    timestamp fecha_cambio
   }
   token_recuperacion {
     bigint id PK
@@ -89,6 +93,7 @@ erDiagram
     varchar token_hash UK
     timestamp expira_en
     timestamp usado_en
+    timestamp creado_en
   }
   categoria {
     bigint id PK
@@ -112,6 +117,8 @@ erDiagram
     decimal stock_minimo
     decimal costo_unitario
     varchar tipo_control "RECETA LIBRE"
+    decimal dotacion_cantidad "solo LIBRE"
+    varchar dotacion_periodo "SEMANAL MENSUAL"
   }
   receta_detalle {
     bigint id PK
@@ -130,6 +137,7 @@ erDiagram
     bigint mesa_id FK
     bigint empleado_id FK
     varchar estado
+    timestamp fecha_registro
   }
   pedido_detalle {
     bigint id PK
@@ -142,6 +150,7 @@ erDiagram
     bigint id PK
     bigint restaurante_id FK
     varchar nombre
+    varchar contacto
   }
   proveedor_insumo {
     bigint id PK
@@ -162,25 +171,29 @@ erDiagram
     bigint ingrediente_id FK
     bigint motivo_id FK
     decimal cantidad
+    timestamp fecha_registro
   }
   registro_ingreso_proveedor {
     bigint id PK
     bigint empleado_id FK
     bigint proveedor_id FK
     bigint ingrediente_id FK
-    date fecha_vencimiento
+    varchar lote
+    date fecha_vencimiento "NULL = no perecible"
     decimal cantidad_recibida
     decimal costo_total
+    timestamp fecha_registro
   }
   conteo_ciclico {
     bigint id PK
     bigint empleado_id FK
     bigint ingrediente_id FK
     decimal cantidad_fisica_contada
+    timestamp fecha_registro
   }
 ```
 
-En el diagrama van las llaves y los campos que explican cada tabla; el detalle completo (tipos, `CHECK`, índices y triggers) está en el script.
+El diagrama trae todas las columnas del script; los tipos exactos (`DECIMAL(10,2)`, `VARCHAR(150)`…), los `CHECK`, los índices y los triggers están en el script.
 
 ## Reglas que pone la BD
 - `CHECK` en los estados (`empleado`, `producto`, `mesa`, `pedido`, `pedido_detalle`) y en cantidades y precios.
