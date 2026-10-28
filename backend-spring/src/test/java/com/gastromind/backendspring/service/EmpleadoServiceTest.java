@@ -42,6 +42,9 @@ class EmpleadoServiceTest {
     @Mock
     private CorreoService correoService;
 
+    @Mock
+    private RecuperacionService recuperacionService;
+
     @InjectMocks
     private EmpleadoServiceImpl empleadoService;
 
@@ -73,13 +76,12 @@ class EmpleadoServiceTest {
     @Test
     void registrarEmpleado_Exito() {
         EmpleadoRegistroRequest request = new EmpleadoRegistroRequest(
-                "Carlos Perez", "carlos@restaurante.com", "password123", 2L, "1234"
+                "Carlos Perez", "carlos@restaurante.com", 2L, "1234"
         );
 
         when(empleadoRepository.findById(1L)).thenReturn(Optional.of(adminMock));
         when(empleadoRepository.existsByCorreo("carlos@restaurante.com")).thenReturn(false);
         when(rolRepository.findById(2L)).thenReturn(Optional.of(rolMock));
-        when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
         when(empleadoRepository.save(any(Empleado.class))).thenAnswer(invocation -> {
             Empleado e = invocation.getArgument(0);
             e.setId(10L);
@@ -92,12 +94,13 @@ class EmpleadoServiceTest {
         assertEquals("Carlos Perez", response.nombreCompleto());
         assertEquals("ACTIVO", response.estado());
         assertEquals("COCINERO", response.rol());
+        assertEquals("1234", response.pinAcceso());  // la única vez que el admin ve el PIN
         verify(empleadoRepository, times(1)).save(any(Empleado.class));
     }
 
     private EmpleadoRegistroRequest requestValido() {
         return new EmpleadoRegistroRequest(
-                "Carlos Perez", "carlos@restaurante.com", "password123", 2L, "1234"
+                "Carlos Perez", "carlos@restaurante.com", 2L, "1234"
         );
     }
 
@@ -110,35 +113,54 @@ class EmpleadoServiceTest {
             e.setId(10L);
             return e;
         });
+        when(recuperacionService.crearEnlaceBienvenida(any(Empleado.class)))
+                .thenReturn("http://localhost:5173/restablecer?token=abc&bienvenida=1");
     }
 
     @Test
-    void registrarEmpleado_GuardaPasswordYPinConHash() {
+    void registrarEmpleado_GuardaUnaClaveAlAzarYElPinConHash() {
         prepararRegistroValido();
-        when(passwordEncoder.encode("password123")).thenReturn("hashPassword");
+        when(passwordEncoder.encode(anyString())).thenReturn("hashClaveAlAzar");
         when(passwordEncoder.encode("1234")).thenReturn("hashPin");
 
         empleadoService.registrarEmpleado(requestValido(), "1");
 
         ArgumentCaptor<Empleado> captor = ArgumentCaptor.forClass(Empleado.class);
         verify(empleadoRepository).save(captor.capture());
-        assertEquals("hashPassword", captor.getValue().getPasswordHash());
+        assertEquals("hashClaveAlAzar", captor.getValue().getPasswordHash());
         assertEquals("hashPin", captor.getValue().getPinAcceso());
         assertEquals(restauranteMock, captor.getValue().getRestaurante());
     }
 
     @Test
-    void registrarEmpleado_SinPin_NoGuardaPin() {
+    void registrarEmpleado_ClaveAlAzarDistintaEnCadaRegistro() {
         prepararRegistroValido();
+
+        empleadoService.registrarEmpleado(requestValido(), "1");
+        empleadoService.registrarEmpleado(requestValido(), "1");
+
+        ArgumentCaptor<String> claves = ArgumentCaptor.forClass(String.class);
+        verify(passwordEncoder, times(4)).encode(claves.capture());  // clave + PIN, dos veces
+        String primera = claves.getAllValues().get(0);
+        String segunda = claves.getAllValues().get(2);
+        assertNotEquals(primera, segunda);
+        assertTrue(primera.length() >= 32);
+    }
+
+    @Test
+    void registrarEmpleado_SinPin_GeneraUnoDe4Digitos() {
+        prepararRegistroValido();
+        when(passwordEncoder.encode(anyString())).thenAnswer(inv -> "hash:" + inv.getArgument(0));
         EmpleadoRegistroRequest request = new EmpleadoRegistroRequest(
-                "Carlos Perez", "carlos@restaurante.com", "password123", 2L, null
+                "Carlos Perez", "carlos@restaurante.com", 2L, null
         );
 
-        empleadoService.registrarEmpleado(request, "1");
+        EmpleadoResponse response = empleadoService.registrarEmpleado(request, "1");
 
+        assertTrue(response.pinAcceso().matches("\\d{4}"), response.pinAcceso());
         ArgumentCaptor<Empleado> captor = ArgumentCaptor.forClass(Empleado.class);
         verify(empleadoRepository).save(captor.capture());
-        assertNull(captor.getValue().getPinAcceso());
+        assertEquals("hash:" + response.pinAcceso(), captor.getValue().getPinAcceso());
     }
 
     @Test
@@ -180,18 +202,32 @@ class EmpleadoServiceTest {
     }
 
     @Test
-    void registrarEmpleado_EnviaBienvenidaConCredencialesIniciales() {
+    void registrarEmpleado_EnviaBienvenidaConElEnlaceYSinCredenciales() {
         prepararRegistroValido();
 
         empleadoService.registrarEmpleado(requestValido(), "1");
 
         ArgumentCaptor<String> cuerpo = ArgumentCaptor.forClass(String.class);
         verify(correoService).enviar(eq("carlos@restaurante.com"), anyString(), cuerpo.capture());
-        assertTrue(cuerpo.getValue().contains("Carlos Perez"));
-        assertTrue(cuerpo.getValue().contains("COCINERO"));
-        assertTrue(cuerpo.getValue().contains("carlos@restaurante.com"));
-        assertTrue(cuerpo.getValue().contains("password123"));
-        assertTrue(cuerpo.getValue().contains("PIN de acceso: 1234"));
+        String texto = cuerpo.getValue();
+        assertTrue(texto.contains("Carlos Perez"));
+        assertTrue(texto.contains("COCINERO"));
+        assertTrue(texto.contains("carlos@restaurante.com"));
+        assertTrue(texto.contains("http://localhost:5173/restablecer?token=abc&bienvenida=1"));
+        // HU-01-b (DoD): ni la contraseña ni el PIN viajan por correo
+        assertFalse(texto.contains("1234"));
+        assertFalse(texto.contains("Contraseña:"));
+    }
+
+    @Test
+    void registrarEmpleado_CreaElEnlaceDelEmpleadoGuardado() {
+        prepararRegistroValido();
+
+        empleadoService.registrarEmpleado(requestValido(), "1");
+
+        ArgumentCaptor<Empleado> captor = ArgumentCaptor.forClass(Empleado.class);
+        verify(recuperacionService).crearEnlaceBienvenida(captor.capture());
+        assertEquals(10L, captor.getValue().getId());
     }
 
     @Test
@@ -209,7 +245,7 @@ class EmpleadoServiceTest {
     @Test
     void registrarEmpleado_CorreoDuplicado_LanzaExcepcion() {
         EmpleadoRegistroRequest request = new EmpleadoRegistroRequest(
-                "Carlos Perez", "duplicado@restaurante.com", "password123", 2L, "1234"
+                "Carlos Perez", "duplicado@restaurante.com", 2L, "1234"
         );
 
         when(empleadoRepository.findById(1L)).thenReturn(Optional.of(adminMock));
@@ -218,5 +254,6 @@ class EmpleadoServiceTest {
         assertThrows(ResponseStatusException.class, () ->
                 empleadoService.registrarEmpleado(request, "1")
         );
+        verifyNoInteractions(recuperacionService, correoService);
     }
 }
