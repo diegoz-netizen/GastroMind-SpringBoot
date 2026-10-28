@@ -261,8 +261,9 @@ function Carta() {
                   <th style={styles.th}>Categoría</th>
                   <th style={styles.th}>Platillo</th>
                   <th style={styles.thNum}>Precio</th>
-                  <th style={styles.thNum}>Costo</th>
-                  <th style={styles.thNum}>Margen</th>
+                  {/* Review 2: costo y margen solo para el admin */}
+                  {esAdmin && <th style={styles.thNum}>Costo</th>}
+                  {esAdmin && <th style={styles.thNum}>Margen</th>}
                   <th style={styles.th}>Receta</th>
                   <th style={styles.th}>Estado</th>
                   {esAdmin && <th style={styles.th}></th>}
@@ -271,16 +272,18 @@ function Carta() {
               <tbody>
                 {visibles.map((platillo) => {
                   const activo = platillo.estado === 'ACTIVO';
-                  // HU-08: sin su receta, el costo no está completo (saldría 0)
                   const faltaReceta = platillo.requiere_receta && platillo.detalles_receta.length === 0;
+                  // HU-08: la API manda el costo en null si el platillo no lleva receta o aún no la tiene
+                  const sinCosto = platillo.costo == null;
                   return (
                     <tr key={platillo.id} style={activo ? undefined : styles.filaInactiva}>
                       <td style={styles.td}>{platillo.categoria_nombre}</td>
                       <td style={styles.td}>{platillo.nombre}</td>
                       <td style={styles.tdNum}>{soles(platillo.precio)}</td>
-                      <td style={styles.tdNum}>{faltaReceta ? '—' : soles(platillo.costo)}</td>
+                      {esAdmin && <td style={styles.tdNum}>{sinCosto ? '—' : soles(platillo.costo)}</td>}
+                      {esAdmin && (
                       <td style={{ ...styles.tdNum, ...(Number(platillo.margen) < 0 ? styles.margenNegativo : {}) }}>
-                        {faltaReceta ? (
+                        {sinCosto ? (
                           '—'
                         ) : (
                           <>
@@ -292,6 +295,7 @@ function Carta() {
                           </>
                         )}
                       </td>
+                      )}
                       <td style={styles.td}>
                         {/* HU-06: desde aquí se abre la receta del platillo (el admin la arma; el resto solo la ve) */}
                         {!platillo.requiere_receta ? (

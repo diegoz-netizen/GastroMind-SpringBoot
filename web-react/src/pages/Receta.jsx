@@ -186,7 +186,8 @@ function Receta() {
                 <span>
                   {platillo.categoria_nombre} · Precio <strong>{soles(platillo.precio)}</strong>
                 </span>
-                {platillo.requiere_receta && platillo.detalles_receta.length > 0 && (
+                {/* Review 2: el costo y el margen solo los ve el admin (la API ni los manda a los demás roles) */}
+                {esAdmin && platillo.costo != null && (
                   <span>
                     Costo guardado <strong>{soles(platillo.costo)}</strong> · Margen{' '}
                     <strong style={Number(platillo.margen) < 0 ? styles.margenNegativo : undefined}>
@@ -217,8 +218,8 @@ function Receta() {
                           <th style={styles.th}>Insumo</th>
                           <th style={styles.thNum}>Cantidad</th>
                           <th style={styles.th}>Unidad</th>
-                          <th style={styles.thNum}>Costo unitario</th>
-                          <th style={styles.thNum}>Subtotal</th>
+                          {esAdmin && <th style={styles.thNum}>Costo unitario</th>}
+                          {esAdmin && <th style={styles.thNum}>Subtotal</th>}
                           {editable && <th style={styles.th}></th>}
                         </tr>
                       </thead>
@@ -254,8 +255,8 @@ function Receta() {
                                 )}
                               </td>
                               <td style={styles.td}>{insumo?.unidad_medida ?? '—'}</td>
-                              <td style={styles.tdNum}>{insumo ? soles(insumo.costo_unitario) : '—'}</td>
-                              <td style={styles.tdNum}>{insumo ? soles(costoLinea(linea)) : '—'}</td>
+                              {esAdmin && <td style={styles.tdNum}>{insumo ? soles(insumo.costo_unitario) : '—'}</td>}
+                              {esAdmin && <td style={styles.tdNum}>{insumo ? soles(costoLinea(linea)) : '—'}</td>}
                               {editable && (
                                 <td style={styles.tdAcciones}>
                                   <button type="button" onClick={() => quitarLinea(indice)} style={styles.dangerLink}>
@@ -267,6 +268,7 @@ function Receta() {
                           );
                         })}
                       </tbody>
+                      {esAdmin && (
                       <tfoot>
                         <tr>
                           <td style={styles.tdTotal} colSpan={4}>
@@ -276,6 +278,7 @@ function Receta() {
                           {editable && <td style={styles.tdTotal}></td>}
                         </tr>
                       </tfoot>
+                      )}
                     </table>
                   )}
 
