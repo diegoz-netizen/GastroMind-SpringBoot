@@ -45,7 +45,7 @@ flowchart LR
 - **Un solo login:** Spring emite el JWT (`POST /api/auth/login`). Django lo verifica por su cuenta con el mismo secreto, sin llamar a Spring; por eso no hay flecha entre los dos backends.
 - **Quién escribe y quién lee:** Spring registra la operación del día (pedidos, movimientos de stock y mermas, HU-13, HU-14, HU-17 y HU-18). Django lee esas tablas para el kardex (HU-15), las alertas (HU-16) y el análisis de mermas (HU-19 y HU-20).
 - **Un solo esquema:** las tablas se crean con `docs/script_database.sql` y `docs/migraciones/`; ningún backend las crea ni las altera.
-- **Modelo de datos (MER, 18 tablas):** [`docs/modelo_datos.md`](docs/modelo_datos.md).
+- **Modelo de datos (MER, 19 tablas):** [`docs/modelo_datos.md`](docs/modelo_datos.md).
 - **Cronograma (Gantt de los 4 sprints):** [`docs/cronograma.md`](docs/cronograma.md).
 
 ## Cómo correrlo
