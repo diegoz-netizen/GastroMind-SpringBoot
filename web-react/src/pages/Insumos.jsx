@@ -36,6 +36,8 @@ function Insumos() {
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
   const puedeRegistrar = ROLES_QUE_REGISTRAN.includes(auth.rol?.toUpperCase());
+  // Review 2: el costo lo ven los mismos roles que registran (la API no se lo manda al resto)
+  const veCosto = puedeRegistrar;
 
   const mensajeDeError = (err) => {
     if (!err.response) {
@@ -221,7 +223,7 @@ function Insumos() {
                   <th style={styles.th}>Unidad</th>
                   <th style={styles.thNum}>Stock actual</th>
                   <th style={styles.thNum}>Stock minimo</th>
-                  <th style={styles.thNum}>Costo (S/)</th>
+                  {veCosto && <th style={styles.thNum}>Costo (S/)</th>}
                   <th style={styles.th}>Control</th>
                   <th style={styles.th}></th>
                 </tr>
@@ -233,7 +235,7 @@ function Insumos() {
                     <td style={styles.td}>{insumo.unidad_medida}</td>
                     <td style={styles.tdNum}>{insumo.stock_actual}</td>
                     <td style={styles.tdNum}>{insumo.stock_minimo}</td>
-                    <td style={styles.tdNum}>{insumo.costo_unitario}</td>
+                    {veCosto && <td style={styles.tdNum}>{insumo.costo_unitario}</td>}
                     <td style={styles.td}>{insumo.tipo_control}</td>
                     <td style={styles.td}>
                       {insumo.bajo_stock_minimo && <span style={styles.badgeAlerta}>Bajo minimo</span>}
