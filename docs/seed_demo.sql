@@ -11,6 +11,7 @@
 --   almacen.central@gastromind.demo, mozo.norte@gastromind.demo,
 --   cocina.norte@gastromind.demo   /  Demo2026!  (uno por rol)
 --   mozo.inactivo@gastromind.demo  /  Demo2026!  (INACTIVO: el login lo rechaza)
+--   PIN de la app (HU-27): 1234 para mozo, cocina y almacen de las dos sedes
 -- Hash BCrypt (cost 10) generado con BCryptPasswordEncoder de Spring Security.
 --
 -- Regla del equipo: todo dato de demo, test o Postman va en este archivo,
@@ -139,6 +140,12 @@ FROM (VALUES
 JOIN restaurante r ON r.nombre = v.restaurante
 WHERE NOT EXISTS (SELECT 1 FROM empleado e WHERE e.correo = v.correo)
 ORDER BY v.orden;
+
+-- HU-27 (28/10): PIN 1234 de los empleados de la app, con hash BCrypt (cost 10). Solo si no tienen uno.
+UPDATE empleado SET pin_acceso = '$2a$10$JDTxOinYerLvb2WZoyCG.Orj0XS6DCd4/xYwUoih993A8xQpnSR46'
+WHERE pin_acceso IS NULL
+  AND correo IN ('mozo.central@gastromind.demo', 'cocina.central@gastromind.demo', 'almacen.central@gastromind.demo',
+                 'mozo.inactivo@gastromind.demo', 'mozo.norte@gastromind.demo', 'cocina.norte@gastromind.demo');
 
 -- HU-07: categoria vacia (borrarla da 204; borrar una con platillos da 409).
 INSERT INTO categoria (restaurante_id, nombre)
