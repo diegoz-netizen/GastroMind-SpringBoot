@@ -27,6 +27,9 @@ public class AuthService {
     static final String DEMASIADOS_INTENTOS = "Demasiados intentos con PIN. Espera unos minutos o entra con tu correo y contraseña.";
     // El PIN es para la app de los roles operativos; el administrador entra con correo y contraseña
     private static final Set<String> ROLES_CON_PIN = Set.of("MOZO", "COCINERO", "ALMACENERO");
+    // BCrypt de un texto al azar: se compara contra él cuando el correo no existe o no tiene PIN, para que la
+    // respuesta tarde lo mismo (~100 ms) y por el tiempo no se sepa qué correos existen (revisión de Victor, #35)
+    private static final String HASH_FALSO = "$2a$10$.kqYy4JZ.izm.V8LtYj/COMRueFSFaUyHdWvIuXRNfmke.e64F1ai";
 
     @Autowired
     private EmpleadoRepository empleadoRepository;
@@ -69,10 +72,11 @@ public class AuthService {
         }
 
         Empleado empleado = empleadoRepository.findByCorreo(request.correo().trim()).orElse(null);
-        boolean valido = empleado != null
-                && empleado.getPinAcceso() != null
-                && ROLES_CON_PIN.contains(empleado.getRol().getNombre().toUpperCase())
-                && passwordEncoder.matches(request.pin(), empleado.getPinAcceso());
+        boolean tienePin = empleado != null && empleado.getPinAcceso() != null;
+        // BCrypt corre siempre, exista o no el correo
+        boolean pinCoincide = passwordEncoder.matches(request.pin(), tienePin ? empleado.getPinAcceso() : HASH_FALSO);
+        boolean valido = tienePin && pinCoincide
+                && ROLES_CON_PIN.contains(empleado.getRol().getNombre().toUpperCase());
         if (!valido) {
             // Solo se cuentan los fallos: un mozo que entra varias veces en el turno no se bloquea
             limite.permitir("pin-correo:" + correo, MAX_FALLOS_PIN_POR_CORREO, VENTANA_PIN, ahora);

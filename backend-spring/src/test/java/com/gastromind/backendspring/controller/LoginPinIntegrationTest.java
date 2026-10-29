@@ -98,6 +98,19 @@ class LoginPinIntegrationTest {
     }
 
     @Test
+    void correoInexistente_TambienComparaElPin() throws Exception {
+        // Si no corriera BCrypt, el 401 de un correo inexistente saldría mucho más rápido y lo delataría
+        long inicio = System.nanoTime();
+        credencialesInvalidas("nadie@test.com", "4821");
+        long sinCorreo = System.nanoTime() - inicio;
+        inicio = System.nanoTime();
+        credencialesInvalidas("ana@test.com", "1111");
+        long pinIncorrecto = System.nanoTime() - inicio;
+        org.junit.jupiter.api.Assertions.assertTrue(sinCorreo * 3 > pinIncorrecto,
+                "sin correo: " + sinCorreo / 1_000_000 + " ms, PIN incorrecto: " + pinIncorrecto / 1_000_000 + " ms");
+    }
+
+    @Test
     void elAdministradorNoEntraConPin() throws Exception {
         credencialesInvalidas("admin@test.com", "4821");
     }
