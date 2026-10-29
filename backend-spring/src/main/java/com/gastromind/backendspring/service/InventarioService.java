@@ -3,6 +3,7 @@ package com.gastromind.backendspring.service;
 import com.gastromind.backendspring.entity.Empleado;
 import com.gastromind.backendspring.entity.Ingrediente;
 import com.gastromind.backendspring.entity.MovimientoInventario;
+import com.gastromind.backendspring.entity.RegistroIngresoProveedor;
 import com.gastromind.backendspring.entity.TipoMovimiento;
 import com.gastromind.backendspring.repository.IngredienteRepository;
 import com.gastromind.backendspring.repository.MovimientoInventarioRepository;
@@ -28,6 +29,8 @@ import java.util.Objects;
  * Si algo falla, no se guarda ni el stock ni el movimiento.
  *
  * Las cantidades llegan siempre positivas (lo que entró o salió); el signo lo pone el tipo.
+ * Para el consumo y las mermas, quien llama debe pasar el insumo de su propio origen (el insumo de la receta
+ * de ese platillo, el de esa merma); cuando existan sus entidades, conviene una sobrecarga como la del ingreso.
  * El restaurante sale del empleado que hace la operación, nunca del cliente.
  */
 @Service
@@ -54,6 +57,17 @@ public class InventarioService {
     public MovimientoInventario registrarIngreso(Long ingredienteId, BigDecimal cantidad,
                                                  Long registroIngresoId, Empleado empleado) {
         return registrar(ingredienteId, TipoMovimiento.INGRESO, cantidad, registroIngresoId, empleado);
+    }
+
+    /**
+     * HU-14: igual que el anterior, pero el insumo y la cantidad salen de la misma compra,
+     * así el movimiento no puede quedar apuntando a una compra de otro insumo (observación 2 del #32).
+     */
+    @Transactional
+    public MovimientoInventario registrarIngreso(RegistroIngresoProveedor compra, Empleado empleado) {
+        Objects.requireNonNull(compra, "compra");
+        return registrar(compra.getIngrediente().getId(), TipoMovimiento.INGRESO, compra.getCantidadRecibida(),
+                compra.getId(), empleado);
     }
 
     /** HU-13: un platillo servido descuenta, por cada insumo de su receta, cantidad requerida x porciones. */
