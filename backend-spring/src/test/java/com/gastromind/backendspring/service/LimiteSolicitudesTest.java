@@ -30,4 +30,15 @@ class LimiteSolicitudesTest {
         assertFalse(limite.permitir("a", 1, VENTANA, inicio));
         assertTrue(limite.permitir("b", 1, VENTANA, inicio));
     }
+
+    @Test
+    void bloqueada_SoloMiraNoCuentaYSeLiberaAlSalirDeLaVentana() {
+        assertFalse(limite.bloqueada("a", 2, VENTANA, inicio));
+        limite.permitir("a", 2, VENTANA, inicio);
+        assertFalse(limite.bloqueada("a", 2, VENTANA, inicio));
+        assertFalse(limite.bloqueada("a", 2, VENTANA, inicio));  // mirar no suma
+        limite.permitir("a", 2, VENTANA, inicio);
+        assertTrue(limite.bloqueada("a", 2, VENTANA, inicio.plusSeconds(60)));
+        assertFalse(limite.bloqueada("a", 2, VENTANA, inicio.plus(VENTANA)));
+    }
 }

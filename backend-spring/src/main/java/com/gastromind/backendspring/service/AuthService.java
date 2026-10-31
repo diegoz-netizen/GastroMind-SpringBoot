@@ -1,6 +1,7 @@
 package com.gastromind.backendspring.service;
 
 import com.gastromind.backendspring.dto.AuthResponse;
+import com.gastromind.backendspring.dto.LoginPinRequest;
 import com.gastromind.backendspring.dto.LoginRequest;
 import com.gastromind.backendspring.entity.Empleado;
 import com.gastromind.backendspring.repository.EmpleadoRepository;
@@ -11,8 +12,24 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Set;
+
 @Service
 public class AuthService {
+
+    // HU-27: un PIN de 4 dígitos son solo 10 000 combinaciones; se cortan los intentos fallidos
+    static final int MAX_FALLOS_PIN_POR_CORREO = 5;
+    static final int MAX_FALLOS_PIN_POR_IP = 20;
+    static final Duration VENTANA_PIN = Duration.ofMinutes(15);
+    static final String CREDENCIALES_INVALIDAS = "Credenciales inválidas";
+    static final String DEMASIADOS_INTENTOS = "Demasiados intentos con PIN. Espera unos minutos o entra con tu correo y contraseña.";
+    // El PIN es para la app de los roles operativos; el administrador entra con correo y contraseña
+    private static final Set<String> ROLES_CON_PIN = Set.of("MOZO", "COCINERO", "ALMACENERO");
+    // BCrypt de un texto al azar: se compara contra él cuando el correo no existe o no tiene PIN, para que la
+    // respuesta tarde lo mismo (~100 ms) y por el tiempo no se sepa qué correos existen (revisión de Victor, #35)
+    private static final String HASH_FALSO = "$2a$10$.kqYy4JZ.izm.V8LtYj/COMRueFSFaUyHdWvIuXRNfmke.e64F1ai";
 
     @Autowired
     private EmpleadoRepository empleadoRepository;
@@ -22,6 +39,9 @@ public class AuthService {
 
     @Autowired
     private JwtTokenProvider tokenProvider;
+
+    @Autowired
+    private LimiteSolicitudes limite;
 
     public AuthResponse login(LoginRequest request) {
         // 1. Buscar empleado por correo
@@ -36,6 +56,41 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas");
         }
 
+        return respuesta(empleado);
+    }
+
+    /**
+     * HU-27. Correo inexistente, PIN incorrecto, sin PIN o rol sin PIN responden igual (401, mismo mensaje):
+     * no se revela qué dato falló. Tras 5 fallos por correo o 20 por IP en 15 min, 429.
+     */
+    public AuthResponse loginPin(LoginPinRequest request, String ip) {
+        String correo = request.correo().trim().toLowerCase();
+        Instant ahora = Instant.now();
+        if (limite.bloqueada("pin-correo:" + correo, MAX_FALLOS_PIN_POR_CORREO, VENTANA_PIN, ahora)
+                || limite.bloqueada("pin-ip:" + ip, MAX_FALLOS_PIN_POR_IP, VENTANA_PIN, ahora)) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, DEMASIADOS_INTENTOS);
+        }
+
+        Empleado empleado = empleadoRepository.findByCorreo(request.correo().trim()).orElse(null);
+        boolean tienePin = empleado != null && empleado.getPinAcceso() != null;
+        // BCrypt corre siempre, exista o no el correo
+        boolean pinCoincide = passwordEncoder.matches(request.pin(), tienePin ? empleado.getPinAcceso() : HASH_FALSO);
+        boolean valido = tienePin && pinCoincide
+                && ROLES_CON_PIN.contains(empleado.getRol().getNombre().toUpperCase());
+        if (!valido) {
+            // Solo se cuentan los fallos: un mozo que entra varias veces en el turno no se bloquea
+            limite.permitir("pin-correo:" + correo, MAX_FALLOS_PIN_POR_CORREO, VENTANA_PIN, ahora);
+            limite.permitir("pin-ip:" + ip, MAX_FALLOS_PIN_POR_IP, VENTANA_PIN, ahora);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, CREDENCIALES_INVALIDAS);
+        }
+        // Se revisa después del PIN: con un PIN equivocado no se sabe si la cuenta existe o está inactiva
+        if (!"ACTIVO".equalsIgnoreCase(empleado.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Su cuenta se encuentra inactiva. Contacte al administrador.");
+        }
+        return respuesta(empleado);
+    }
+
+    private AuthResponse respuesta(Empleado empleado) {
         String token = tokenProvider.generarToken(empleado);
 
         return AuthResponse.builder()

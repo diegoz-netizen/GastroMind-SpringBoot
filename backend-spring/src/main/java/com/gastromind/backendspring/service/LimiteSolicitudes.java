@@ -35,6 +35,19 @@ public class LimiteSolicitudes {
         return permitida[0];
     }
 
+    /** HU-27: true si la clave ya llegó a {@code maximo} dentro de la ventana. No registra nada. */
+    public boolean bloqueada(String clave, int maximo, Duration ventana, Instant ahora) {
+        boolean[] llena = {false};
+        solicitudes.computeIfPresent(clave, (k, previas) -> {
+            while (!previas.isEmpty() && !previas.peekFirst().isAfter(ahora.minus(ventana))) {
+                previas.pollFirst();
+            }
+            llena[0] = previas.size() >= maximo;
+            return previas.isEmpty() ? null : previas;
+        });
+        return llena[0];
+    }
+
     /** Para los tests: cada uno empieza con los contadores en 0. */
     public void limpiar() {
         solicitudes.clear();

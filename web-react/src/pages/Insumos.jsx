@@ -17,7 +17,6 @@ const FORM_VACIO = {
   unidad_medida: 'kg',
   costo_unitario: '',
   stock_minimo: '',
-  stock_actual: '',
   tipo_control: 'RECETA',
   dotacion_cantidad: '',
   dotacion_periodo: 'SEMANAL',
@@ -36,6 +35,8 @@ function Insumos() {
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
   const puedeRegistrar = ROLES_QUE_REGISTRAN.includes(auth.rol?.toUpperCase());
+  // Review 2: el costo lo ven los mismos roles que registran (la API no se lo manda al resto)
+  const veCosto = puedeRegistrar;
 
   const mensajeDeError = (err) => {
     if (!err.response) {
@@ -75,7 +76,6 @@ function Insumos() {
     setGuardando(true);
 
     const datos = { ...form };
-    if (datos.stock_actual === '') delete datos.stock_actual;
     if (datos.tipo_control === 'RECETA') {
       delete datos.dotacion_cantidad;
       delete datos.dotacion_periodo;
@@ -87,7 +87,8 @@ function Insumos() {
       setInsumos((lista) =>
         [...lista, response.data].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
       );
-      setExito(`Insumo "${response.data.nombre}" registrado.`);
+      // El insumo nace con stock 0: el stock entra con el ingreso de compras (HU-14), que deja su movimiento
+      setExito(`Insumo "${response.data.nombre}" registrado con stock 0. El stock entra con el ingreso de compras.`);
       setForm(FORM_VACIO);
     } catch (err) {
       // 400 de CA-05: Django devuelve {error: 'VALIDACION', mensaje, campos: {campo: mensaje}} (HL-014)
@@ -163,15 +164,9 @@ function Insumos() {
               </label>
               <label style={styles.label}>
                 Stock minimo *
-                <input name="stock_minimo" type="number" step="0.01" min="0.01" value={form.stock_minimo}
+                <input name="stock_minimo" type="number" step="0.001" min="0.001" value={form.stock_minimo}
                   onChange={cambiar} style={styles.input} />
                 {errorDe('stock_minimo')}
-              </label>
-              <label style={styles.label}>
-                Stock actual
-                <input name="stock_actual" type="number" step="0.01" min="0" value={form.stock_actual}
-                  onChange={cambiar} style={styles.input} placeholder="0" />
-                {errorDe('stock_actual')}
               </label>
               <label style={styles.label}>
                 Tipo de control
@@ -185,7 +180,7 @@ function Insumos() {
                 <>
                   <label style={styles.label}>
                     Dotacion *
-                    <input name="dotacion_cantidad" type="number" step="0.01" min="0.01"
+                    <input name="dotacion_cantidad" type="number" step="0.001" min="0.001"
                       value={form.dotacion_cantidad} onChange={cambiar} style={styles.input} />
                     {errorDe('dotacion_cantidad')}
                   </label>
@@ -221,7 +216,7 @@ function Insumos() {
                   <th style={styles.th}>Unidad</th>
                   <th style={styles.thNum}>Stock actual</th>
                   <th style={styles.thNum}>Stock minimo</th>
-                  <th style={styles.thNum}>Costo (S/)</th>
+                  {veCosto && <th style={styles.thNum}>Costo (S/)</th>}
                   <th style={styles.th}>Control</th>
                   <th style={styles.th}></th>
                 </tr>
@@ -233,7 +228,7 @@ function Insumos() {
                     <td style={styles.td}>{insumo.unidad_medida}</td>
                     <td style={styles.tdNum}>{insumo.stock_actual}</td>
                     <td style={styles.tdNum}>{insumo.stock_minimo}</td>
-                    <td style={styles.tdNum}>{insumo.costo_unitario}</td>
+                    {veCosto && <td style={styles.tdNum}>{insumo.costo_unitario}</td>}
                     <td style={styles.td}>{insumo.tipo_control}</td>
                     <td style={styles.td}>
                       {insumo.bajo_stock_minimo && <span style={styles.badgeAlerta}>Bajo minimo</span>}
