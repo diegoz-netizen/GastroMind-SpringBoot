@@ -5,11 +5,13 @@ import { SPRING_URL } from '../config/api';
 import { styles } from './recuperacionStyles';
 
 // HU-04: se llega desde el enlace del correo (/restablecer?token=...). El enlace caduca y es de un solo uso.
+// HU-01-b: el correo de bienvenida usa el mismo enlace con &bienvenida=1, para crear la primera contraseña.
 const API_URL = `${SPRING_URL}/api/auth/restablecer`;
 
 function RestablecerContrasena() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
+  const bienvenida = searchParams.get('bienvenida') === '1';
 
   const [nuevaContrasena, setNuevaContrasena] = useState('');
   const [confirmacion, setConfirmacion] = useState('');
@@ -72,7 +74,7 @@ function RestablecerContrasena() {
     <div style={styles.container}>
       <div style={styles.card}>
         <h1 style={styles.title}>GastroMind</h1>
-        <h2 style={styles.subtitle}>Nueva contraseña</h2>
+        <h2 style={styles.subtitle}>{bienvenida ? 'Bienvenido: crea tu contraseña' : 'Nueva contraseña'}</h2>
 
         {mensaje ? (
           <>
