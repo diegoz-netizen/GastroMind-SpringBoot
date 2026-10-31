@@ -1,9 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AlertasDeHoy from '../components/AlertasDeHoy';
+import { ROLES_CON_ALERTAS } from '../config/alertas';
 
 function Dashboard() {
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
+  // HU-16: las alertas solo las ven el admin y el almacenero (al resto Django le responde 403)
+  const veAlertas = ROLES_CON_ALERTAS.includes(auth.rol?.toUpperCase());
 
   return (
     <div style={styles.container}>
@@ -38,6 +42,8 @@ function Dashboard() {
         <button onClick={logout} style={styles.logoutButton}>
           Cerrar sesion
         </button>
+
+        {veAlertas && <AlertasDeHoy token={auth.token} />}
       </div>
     </div>
   );
