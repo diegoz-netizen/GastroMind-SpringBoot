@@ -38,11 +38,11 @@ public class Ingrediente {
     private String unidadMedida;
 
     @Builder.Default
-    @Column(name = "stock_actual", nullable = false, precision = 10, scale = 2)
+    @Column(name = "stock_actual", nullable = false, precision = 10, scale = 3)
     private BigDecimal stockActual = BigDecimal.ZERO;
 
     @Builder.Default
-    @Column(name = "stock_minimo", nullable = false, precision = 10, scale = 2)
+    @Column(name = "stock_minimo", nullable = false, precision = 10, scale = 3)
     private BigDecimal stockMinimo = BigDecimal.ZERO;
 
     @Column(name = "costo_unitario", nullable = false, precision = 10, scale = 2)
@@ -52,7 +52,7 @@ public class Ingrediente {
     @Column(name = "tipo_control", nullable = false, length = 20)
     private String tipoControl = "RECETA";
 
-    @Column(name = "dotacion_cantidad", precision = 10, scale = 2)
+    @Column(name = "dotacion_cantidad", precision = 10, scale = 3)
     private BigDecimal dotacionCantidad;
 
     @Column(name = "dotacion_periodo", length = 20)

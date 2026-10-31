@@ -78,12 +78,12 @@ CREATE TABLE ingrediente (
     restaurante_id      BIGINT NOT NULL REFERENCES restaurante(id),
     nombre              VARCHAR(150) NOT NULL,
     unidad_medida       VARCHAR(20) NOT NULL,       -- g, ml, unidades, kg, l
-    stock_actual        DECIMAL(10,2) NOT NULL DEFAULT 0,
-    stock_minimo        DECIMAL(10,2) NOT NULL DEFAULT 0,
+    stock_actual        DECIMAL(10,3) NOT NULL DEFAULT 0,   -- 3 decimales, como la receta (migración 005)
+    stock_minimo        DECIMAL(10,3) NOT NULL DEFAULT 0,
     costo_unitario      DECIMAL(10,2) NOT NULL CHECK (costo_unitario >= 0),
     tipo_control        VARCHAR(20) NOT NULL DEFAULT 'RECETA'
         CHECK (tipo_control IN ('RECETA', 'LIBRE')),
-    dotacion_cantidad   DECIMAL(10,2),               -- solo aplica si tipo_control = 'LIBRE'
+    dotacion_cantidad   DECIMAL(10,3),               -- solo aplica si tipo_control = 'LIBRE'
     dotacion_periodo    VARCHAR(20)
         CHECK (dotacion_periodo IN ('SEMANAL', 'MENSUAL')),
     CONSTRAINT chk_dotacion_libre CHECK (
@@ -169,7 +169,7 @@ CREATE TABLE registro_merma (
     id              BIGSERIAL PRIMARY KEY,
     empleado_id     BIGINT NOT NULL REFERENCES empleado(id),   -- creado_por: Cocinero/Almacenero
     ingrediente_id  BIGINT NOT NULL REFERENCES ingrediente(id),
-    cantidad        DECIMAL(10,2) NOT NULL CHECK (cantidad > 0),
+    cantidad        DECIMAL(10,3) NOT NULL CHECK (cantidad > 0),
     motivo_id       BIGINT NOT NULL REFERENCES motivo_merma(id),
     fecha_registro  TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -182,7 +182,7 @@ CREATE TABLE registro_ingreso_proveedor (
     ingrediente_id      BIGINT NOT NULL REFERENCES ingrediente(id),
     lote                VARCHAR(50),
     fecha_vencimiento   DATE,                       -- HU-16: NULL = no perecible; alerta 3 dias antes
-    cantidad_recibida   DECIMAL(10,2) NOT NULL CHECK (cantidad_recibida > 0),
+    cantidad_recibida   DECIMAL(10,3) NOT NULL CHECK (cantidad_recibida > 0),
     costo_total         DECIMAL(10,2) NOT NULL CHECK (costo_total >= 0),
     fecha_registro      TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -192,8 +192,42 @@ CREATE TABLE conteo_ciclico (
     id                          BIGSERIAL PRIMARY KEY,
     empleado_id                 BIGINT NOT NULL REFERENCES empleado(id),   -- creado_por: Almacenero
     ingrediente_id              BIGINT NOT NULL REFERENCES ingrediente(id),
-    cantidad_fisica_contada     DECIMAL(10,2) NOT NULL,
+    cantidad_fisica_contada     DECIMAL(10,3) NOT NULL,
     fecha_registro              TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Movimientos de inventario (Sprint 3, migración 005): cada cambio de stock deja una fila con la cantidad
+-- (+ entra, - sale) y el saldo que quedó. La escribe Spring (InventarioService) junto con
+-- ingrediente.stock_actual, en la misma transacción; Django la lee para el kardex (HU-15).
+CREATE TABLE movimiento_inventario (
+    id                  BIGSERIAL PRIMARY KEY,
+    ingrediente_id      BIGINT NOT NULL REFERENCES ingrediente(id),
+    tipo                VARCHAR(20) NOT NULL
+        CHECK (tipo IN ('INGRESO', 'CONSUMO', 'MERMA', 'AJUSTE')),
+    cantidad            DECIMAL(10,3) NOT NULL,          -- con signo: + entra, - sale
+    saldo               DECIMAL(10,3) NOT NULL,          -- stock_actual que quedó después de este movimiento
+    empleado_id         BIGINT REFERENCES empleado(id),  -- NULL solo en el saldo inicial que carga una migración
+    pedido_detalle_id   BIGINT REFERENCES pedido_detalle(id),
+    registro_ingreso_id BIGINT REFERENCES registro_ingreso_proveedor(id),
+    registro_merma_id   BIGINT REFERENCES registro_merma(id),
+    fecha               TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_movimiento_signo CHECK (
+        (tipo = 'INGRESO' AND cantidad > 0)
+        OR (tipo IN ('CONSUMO', 'MERMA') AND cantidad < 0)
+        OR (tipo = 'AJUSTE' AND cantidad <> 0)
+    ),
+    -- Cada tipo trae solo su origen: un consumo sale de un platillo servido, un ingreso de una compra, etc.
+    CONSTRAINT chk_movimiento_origen CHECK (
+        (tipo = 'INGRESO' AND registro_ingreso_id IS NOT NULL AND pedido_detalle_id IS NULL AND registro_merma_id IS NULL)
+        OR (tipo = 'CONSUMO' AND pedido_detalle_id IS NOT NULL AND registro_ingreso_id IS NULL AND registro_merma_id IS NULL)
+        OR (tipo = 'MERMA' AND registro_merma_id IS NOT NULL AND pedido_detalle_id IS NULL AND registro_ingreso_id IS NULL)
+        OR (tipo = 'AJUSTE' AND pedido_detalle_id IS NULL AND registro_ingreso_id IS NULL AND registro_merma_id IS NULL)
+    ),
+    CONSTRAINT chk_movimiento_empleado CHECK (empleado_id IS NOT NULL OR tipo = 'AJUSTE'),
+    -- Un platillo servido descuenta cada insumo una sola vez; una compra o una merma mueven el stock una sola vez
+    CONSTRAINT uq_movimiento_consumo UNIQUE (pedido_detalle_id, ingrediente_id),
+    CONSTRAINT uq_movimiento_ingreso UNIQUE (registro_ingreso_id),
+    CONSTRAINT uq_movimiento_merma UNIQUE (registro_merma_id)
 );
 
 -- ============================================================
@@ -274,6 +308,7 @@ CREATE INDEX idx_ingreso_ingrediente ON registro_ingreso_proveedor(ingrediente_i
 CREATE INDEX idx_ingreso_vencimiento ON registro_ingreso_proveedor(fecha_vencimiento);
 CREATE INDEX idx_proveedor_insumo_ingrediente ON proveedor_insumo(ingrediente_id);
 CREATE INDEX idx_conteo_ingrediente ON conteo_ciclico(ingrediente_id);
+CREATE INDEX idx_movimiento_ingrediente_fecha ON movimiento_inventario(ingrediente_id, fecha);
 
 -- ============================================================
 -- DATOS INICIALES (seed) — roles fijos del sistema
