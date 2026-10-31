@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { DJANGO_URL } from '../config/api';
 import { useAuth } from '../context/AuthContext';
+import { ALERTAS_URL, cuandoVence, diaMes } from '../config/alertas';
 
 // El catálogo va en Django; el token es el mismo que entrega el login de Spring
 const API_URL = `${DJANGO_URL}/api/catalogo/insumos/`;
@@ -31,6 +32,7 @@ function Insumos() {
   const [exito, setExito] = useState('');
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [lotePorInsumo, setLotePorInsumo] = useState({});
 
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
@@ -61,6 +63,24 @@ function Insumos() {
     };
     cargar();
   }, [auth.token]);
+
+  // HU-16: lotes por vencer, solo para admin y almacenero (los mismos roles de las alertas)
+  useEffect(() => {
+    if (!puedeRegistrar) return;
+    const cargarAlertas = async () => {
+      try {
+        const response = await axios.get(ALERTAS_URL, conToken(auth.token));
+        const porInsumo = {};
+        response.data.vencimiento.forEach((lote) => {
+          if (!porInsumo[lote.insumo]) porInsumo[lote.insumo] = lote;
+        });
+        setLotePorInsumo(porInsumo);
+      } catch {
+        // Si fallan las alertas, la tabla se ve igual, solo sin el vencimiento
+      }
+    };
+    cargarAlertas();
+  }, [auth.token, puedeRegistrar]);
 
   const cambiar = (e) => {
     const { name, value } = e.target;
@@ -218,7 +238,7 @@ function Insumos() {
                   <th style={styles.thNum}>Stock minimo</th>
                   {veCosto && <th style={styles.thNum}>Costo (S/)</th>}
                   <th style={styles.th}>Control</th>
-                  <th style={styles.th}></th>
+                  <th style={styles.th}>Estado</th>
                 </tr>
               </thead>
               <tbody>
@@ -231,7 +251,20 @@ function Insumos() {
                     {veCosto && <td style={styles.tdNum}>{insumo.costo_unitario}</td>}
                     <td style={styles.td}>{insumo.tipo_control}</td>
                     <td style={styles.td}>
-                      {insumo.bajo_stock_minimo && <span style={styles.badgeAlerta}>Bajo minimo</span>}
+                      {insumo.bajo_stock_minimo && <span style={styles.badgeStock}>Bajo el mínimo</span>}
+                      {/* HU-16: el lote que vence primero (la API los manda ordenados por fecha) */}
+                      {lotePorInsumo[insumo.nombre] && (
+                        <span style={styles.badgeAlerta}>
+                          {lotePorInsumo[insumo.nombre].vencido
+                            ? `Venció el ${diaMes(lotePorInsumo[insumo.nombre].fecha_vencimiento)}`
+                            : lotePorInsumo[insumo.nombre].dias_restantes === 0
+                              ? 'Vence hoy'
+                              : `Vence ${cuandoVence(lotePorInsumo[insumo.nombre])}`}
+                        </span>
+                      )}
+                      {!insumo.bajo_stock_minimo && !lotePorInsumo[insumo.nombre] && (
+                        <span style={styles.estadoNormal}>Normal</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -373,11 +406,25 @@ const styles = {
   },
   badgeAlerta: {
     padding: '2px 8px',
+    marginRight: '4px',
     borderRadius: '12px',
     backgroundColor: '#fef7e0',
     color: '#b06000',
     fontSize: '12px',
     whiteSpace: 'nowrap',
+  },
+  badgeStock: {
+    padding: '2px 8px',
+    marginRight: '4px',
+    borderRadius: '12px',
+    backgroundColor: '#fce8e6',
+    color: '#c5221f',
+    fontSize: '12px',
+    whiteSpace: 'nowrap',
+  },
+  estadoNormal: {
+    color: '#188038',
+    fontSize: '12px',
   },
   primaryButton: {
     padding: '10px 24px',
