@@ -10,16 +10,21 @@ import com.gastromind.backendspring.entity.Mesa;
 import com.gastromind.backendspring.entity.Pedido;
 import com.gastromind.backendspring.entity.PedidoDetalle;
 import com.gastromind.backendspring.entity.Producto;
+import com.gastromind.backendspring.entity.RecetaDetalle;
 import com.gastromind.backendspring.repository.MesaRepository;
 import com.gastromind.backendspring.repository.PedidoRepository;
 import com.gastromind.backendspring.repository.ProductoRepository;
+import com.gastromind.backendspring.repository.RecetaDetalleRepository;
 import com.gastromind.backendspring.security.EmpleadoActual;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -28,11 +33,15 @@ import java.util.Set;
 /**
  * Base de pedidos del Sprint 3: crear un pedido y cambiar el estado de cada platillo.
  * La usan la HU-09 (mozo), la HU-10 y la HU-11 (cocina), la HU-12 (cerrar la mesa) y la HU-13 (descuento al servir).
- * El descuento de stock no va aquí: la HU-13 lo hace con InventarioService.registrarConsumo.
+ * HU-13: al pasar un platillo a SERVIDO se descuenta su receta con InventarioService, en la misma transacción.
  */
 @Service
 public class PedidoService {
 
+    private static final Logger log = LoggerFactory.getLogger(PedidoService.class);
+
+    // Se descuenta por receta solo lo RECETA; lo LIBRE se controla por dotación y conteo (HU-25)
+    private static final String CONTROL_RECETA = "RECETA";
     private static final String MOZO = "MOZO";
     private static final String COCINERO = "COCINERO";
     private static final String ADMINISTRADOR = "ADMINISTRADOR";
@@ -51,15 +60,21 @@ public class PedidoService {
     private final MesaRepository mesaRepository;
     private final ProductoRepository productoRepository;
     private final PedidoRepository pedidoRepository;
+    private final RecetaDetalleRepository recetaDetalleRepository;
+    private final InventarioService inventarioService;
 
     public PedidoService(EmpleadoActual empleadoActual,
                          MesaRepository mesaRepository,
                          ProductoRepository productoRepository,
-                         PedidoRepository pedidoRepository) {
+                         PedidoRepository pedidoRepository,
+                         RecetaDetalleRepository recetaDetalleRepository,
+                         InventarioService inventarioService) {
         this.empleadoActual = empleadoActual;
         this.mesaRepository = mesaRepository;
         this.productoRepository = productoRepository;
         this.pedidoRepository = pedidoRepository;
+        this.recetaDetalleRepository = recetaDetalleRepository;
+        this.inventarioService = inventarioService;
     }
 
     @Transactional
@@ -120,8 +135,32 @@ public class PedidoService {
         }
 
         detalle.setEstado(nuevo);
+        if (nuevo == EstadoPlatillo.SERVIDO) {
+            descontarReceta(detalle, empleado);
+        }
         pedido.setEstado(estadoDelPedido(pedido.getDetalles(), pedido.getEstado()));
         return PedidoResponse.from(pedidoRepository.saveAndFlush(pedido));
+    }
+
+    /**
+     * HU-13 (CA-13): baja el stock de cada insumo de la receta, cantidad requerida x porciones, y deja su movimiento.
+     * Si un insumo falla, se deshace todo, incluido el estado del platillo. El pedido ya está bloqueado y la
+     * transición solo pasa una vez a SERVIDO, así que un platillo no descuenta dos veces.
+     */
+    private void descontarReceta(PedidoDetalle detalle, Empleado empleado) {
+        Producto producto = detalle.getProducto();
+        List<RecetaDetalle> receta = recetaDetalleRepository.findByProductoIdOrderByIngredienteIdAsc(producto.getId());
+        if (receta.isEmpty() && Boolean.TRUE.equals(producto.getRequiereReceta())) {
+            // Se sirve igual: la cocina no se frena por un dato faltante (Planning 3, punto 3), pero queda en el log
+            log.warn("El producto {} requiere receta y no tiene: se sirvió sin descontar stock", producto.getId());
+        }
+        for (RecetaDetalle linea : receta) {
+            if (!CONTROL_RECETA.equals(linea.getIngrediente().getTipoControl())) {
+                continue;
+            }
+            BigDecimal cantidad = linea.getCantidadRequerida().multiply(BigDecimal.valueOf(detalle.getCantidad()));
+            inventarioService.registrarConsumo(linea.getIngrediente().getId(), cantidad, detalle.getId(), empleado);
+        }
     }
 
     private EstadoPlatillo leerEstado(String estado) {
