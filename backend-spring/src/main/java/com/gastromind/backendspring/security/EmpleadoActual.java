@@ -51,6 +51,18 @@ public class EmpleadoActual {
         return empleado;
     }
 
+    /** Igual que {@link #obtener(Authentication)}, pero exige uno de los roles indicados (403 si no). */
+    public Empleado obtenerConRol(Authentication authentication, String... roles) {
+        Empleado empleado = obtener(authentication);
+        String rol = empleado.getRol().getNombre();
+        for (String permitido : roles) {
+            if (permitido.equalsIgnoreCase(rol)) {
+                return empleado;
+            }
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Se requiere rol " + String.join(" o ", roles));
+    }
+
     /** Restaurante del empleado autenticado: el cliente nunca lo envía, siempre sale de aquí. */
     public Long restauranteId(Authentication authentication) {
         return obtener(authentication).getRestaurante().getId();
