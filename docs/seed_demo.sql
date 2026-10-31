@@ -1,6 +1,7 @@
 -- ============================================================
 -- GASTROMIND — Datos semilla de DEMO (HU-02 Login, HU-05 Insumos, HU-06 Carta y recetas,
--- datos de prueba por rol y de HU-07)
+-- datos de prueba por rol y de HU-07, y del Sprint 3: mesas, proveedores, compras con
+-- vencimiento, pedidos, mermas y el kardex de cada insumo)
 -- Ejecutar DESPUES de script_database.sql (los roles ya existen ahi,
 -- por eso NO se reinsertan; se referencian por nombre).
 --
@@ -175,5 +176,200 @@ JOIN categoria c ON c.restaurante_id = r.id
 JOIN producto p ON p.categoria_id = c.id AND p.nombre = 'Ají de gallina'
 JOIN ingrediente i ON i.restaurante_id = r.id AND i.nombre = v.insumo
 WHERE NOT EXISTS (SELECT 1 FROM receta_detalle d WHERE d.producto_id = p.id AND d.ingrediente_id = i.id);
+
+-- ============================================================
+-- Sprint 3 (28/10): datos para pedidos, compras, mermas, alertas y kardex
+-- (HU-09 a HU-17). Igual que el bloque del 21/10: se puede correr sobre una BD
+-- que ya tiene la demo de arriba, y cada INSERT revisa que el dato no exista.
+-- El stock_actual de los insumos NO cambia: el kardex se arma hacia atrás, con un
+-- saldo inicial (AJUSTE) que hace que la suma de los movimientos dé el stock actual.
+-- ============================================================
+
+-- HU-09 / HU-26: mesas del salón. La 3 de Central queda OCUPADA con un pedido en cocina.
+INSERT INTO mesa (restaurante_id, numero, estado)
+SELECT r.id, v.numero, v.estado
+FROM (VALUES
+    ('GastroMind Demo - Sede Central', 1, 'LIBRE'),
+    ('GastroMind Demo - Sede Central', 2, 'LIBRE'),
+    ('GastroMind Demo - Sede Central', 3, 'OCUPADA'),
+    ('GastroMind Demo - Sede Central', 4, 'LIBRE'),
+    ('GastroMind Demo - Sede Central', 5, 'LIBRE'),
+    ('GastroMind Demo - Sede Central', 6, 'LIBRE'),
+    ('GastroMind Demo - Sede Central', 7, 'LIBRE'),
+    ('GastroMind Demo - Sede Central', 8, 'LIBRE'),
+    ('GastroMind Demo - Sede Norte',   1, 'LIBRE'),
+    ('GastroMind Demo - Sede Norte',   2, 'LIBRE'),
+    ('GastroMind Demo - Sede Norte',   3, 'LIBRE'),
+    ('GastroMind Demo - Sede Norte',   4, 'LIBRE'),
+    ('GastroMind Demo - Sede Norte',   5, 'LIBRE')
+) AS v(restaurante, numero, estado)
+JOIN restaurante r ON r.nombre = v.restaurante
+WHERE NOT EXISTS (SELECT 1 FROM mesa m WHERE m.restaurante_id = r.id AND m.numero = v.numero)
+ORDER BY r.id, v.numero;
+
+-- HU-14 / HU-22: proveedores de cada sede (datos inventados, dominio .demo).
+INSERT INTO proveedor (restaurante_id, nombre, contacto)
+SELECT r.id, v.nombre, v.contacto
+FROM (VALUES
+    (1, 'GastroMind Demo - Sede Central', 'Avícola Santa Rosa',            'ventas@avicolasantarosa.demo · 987 654 321'),
+    (2, 'GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Sr. Quispe · 912 345 678'),
+    (3, 'GastroMind Demo - Sede Central', 'Carnes del Valle',              'pedidos@carnesdelvalle.demo'),
+    (4, 'GastroMind Demo - Sede Norte',   'Pescados del Litoral',          'Sra. Huamán · 955 111 222'),
+    (5, 'GastroMind Demo - Sede Norte',   'Frutas y Cítricos del Norte',   'ventas@citricosnorte.demo')
+) AS v(orden, restaurante, nombre, contacto)
+JOIN restaurante r ON r.nombre = v.restaurante
+WHERE NOT EXISTS (SELECT 1 FROM proveedor p WHERE p.restaurante_id = r.id AND p.nombre = v.nombre)
+ORDER BY v.orden;
+
+-- HU-22: precio y tiempo de entrega de cada proveedor por insumo.
+INSERT INTO proveedor_insumo (proveedor_id, ingrediente_id, precio_unitario, tiempo_entrega_dias)
+SELECT p.id, i.id, v.precio, v.dias
+FROM (VALUES
+    ('GastroMind Demo - Sede Central', 'Avícola Santa Rosa',            'Pollo',          11.20, 1),
+    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Tomate',          4.30, 1),
+    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Cebolla roja',    3.00, 1),
+    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Papa amarilla',   2.60, 1),
+    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Arroz',           3.70, 2),
+    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Ají amarillo',   11.50, 1),
+    ('GastroMind Demo - Sede Central', 'Carnes del Valle',              'Lomo de res',    37.50, 2),
+    ('GastroMind Demo - Sede Norte',   'Pescados del Litoral',          'Pescado',        17.50, 0),
+    ('GastroMind Demo - Sede Norte',   'Frutas y Cítricos del Norte',   'Limón',           4.00, 1),
+    ('GastroMind Demo - Sede Norte',   'Frutas y Cítricos del Norte',   'Camote',          2.40, 1)
+) AS v(restaurante, proveedor, insumo, precio, dias)
+JOIN restaurante r ON r.nombre = v.restaurante
+JOIN proveedor p ON p.restaurante_id = r.id AND p.nombre = v.proveedor
+JOIN ingrediente i ON i.restaurante_id = r.id AND i.nombre = v.insumo
+WHERE NOT EXISTS (SELECT 1 FROM proveedor_insumo x WHERE x.proveedor_id = p.id AND x.ingrediente_id = i.id);
+
+-- HU-14 / HU-16: compras recibidas. El vencimiento es relativo a HOY, así la alerta siempre
+-- tiene algo que mostrar: Pollo vence en 2 días, Pescado mañana y el Tomate ya venció
+-- (sale mientras quede stock). Lomo (10 días) y Limón (6) no alertan; el Arroz no vence.
+INSERT INTO registro_ingreso_proveedor
+    (empleado_id, proveedor_id, ingrediente_id, lote, fecha_vencimiento, cantidad_recibida, costo_total, fecha_registro)
+SELECT e.id, p.id, i.id, v.lote, CURRENT_DATE + v.vence_en_dias, v.cantidad, v.costo, NOW() - v.hace
+FROM (VALUES
+    ('GastroMind Demo - Sede Central', 'almacen.central@gastromind.demo', 'Avícola Santa Rosa',            'Pollo',       'AV-2610',   2,    10.000, 112.00, INTERVAL '2 days'),
+    ('GastroMind Demo - Sede Central', 'almacen.central@gastromind.demo', 'Carnes del Valle',              'Lomo de res', 'CV-2510',   10,    5.000, 187.50, INTERVAL '3 days'),
+    ('GastroMind Demo - Sede Central', 'almacen.central@gastromind.demo', 'Mercado Mayorista - Puesto 14', 'Tomate',      'MM-2410',   -1,    1.500,   6.45, INTERVAL '4 days'),
+    ('GastroMind Demo - Sede Central', 'almacen.central@gastromind.demo', 'Mercado Mayorista - Puesto 14', 'Arroz',       'MM-2510-A', NULL, 20.000,  74.00, INTERVAL '3 days'),
+    ('GastroMind Demo - Sede Norte',   'admin.norte@gastromind.demo',     'Pescados del Litoral',          'Pescado',     'PL-2710',   1,     2.500,  43.75, INTERVAL '1 day'),
+    ('GastroMind Demo - Sede Norte',   'admin.norte@gastromind.demo',     'Frutas y Cítricos del Norte',   'Limón',       'FC-2610',   6,     5.000,  20.00, INTERVAL '2 days')
+) AS v(restaurante, correo, proveedor, insumo, lote, vence_en_dias, cantidad, costo, hace)
+JOIN restaurante r ON r.nombre = v.restaurante
+JOIN empleado e ON e.correo = v.correo
+JOIN proveedor p ON p.restaurante_id = r.id AND p.nombre = v.proveedor
+JOIN ingrediente i ON i.restaurante_id = r.id AND i.nombre = v.insumo
+WHERE NOT EXISTS (SELECT 1 FROM registro_ingreso_proveedor x WHERE x.ingrediente_id = i.id AND x.lote = v.lote);
+
+-- HU-09 a HU-13: pedidos. Mesa 1 de Central y mesa 2 de Norte, ya cerrados (sus platillos
+-- servidos descuentan stock); mesa 3 de Central, en cocina (sirve para el KDS de la HU-10).
+INSERT INTO pedido (mesa_id, empleado_id, estado, fecha_registro)
+SELECT m.id, e.id, v.estado, NOW() - v.hace
+FROM (VALUES
+    ('GastroMind Demo - Sede Central', 1, 'mozo.central@gastromind.demo', 'CERRADO',        INTERVAL '1 day'),
+    ('GastroMind Demo - Sede Central', 3, 'mozo.central@gastromind.demo', 'EN_PREPARACION', INTERVAL '15 minutes'),
+    ('GastroMind Demo - Sede Norte',   2, 'mozo.norte@gastromind.demo',   'CERRADO',        INTERVAL '22 hours')
+) AS v(restaurante, mesa, correo, estado, hace)
+JOIN restaurante r ON r.nombre = v.restaurante
+JOIN mesa m ON m.restaurante_id = r.id AND m.numero = v.mesa
+JOIN empleado e ON e.correo = v.correo
+WHERE NOT EXISTS (SELECT 1 FROM pedido p WHERE p.mesa_id = m.id);
+
+INSERT INTO pedido_detalle (pedido_id, producto_id, cantidad, estado)
+SELECT p.id, pr.id, v.cantidad, v.estado
+FROM (VALUES
+    ('GastroMind Demo - Sede Central', 1, 'Lomo saltado',          2, 'SERVIDO'),
+    ('GastroMind Demo - Sede Central', 1, 'Arroz con pollo',       1, 'SERVIDO'),
+    ('GastroMind Demo - Sede Central', 1, 'Chicha morada (jarra)', 1, 'SERVIDO'),
+    ('GastroMind Demo - Sede Central', 3, 'Lomo saltado',          1, 'EN_PREPARACION'),
+    ('GastroMind Demo - Sede Central', 3, 'Arroz con pollo',       1, 'PENDIENTE'),
+    ('GastroMind Demo - Sede Norte',   2, 'Ceviche de pescado',    2, 'SERVIDO'),
+    ('GastroMind Demo - Sede Norte',   2, 'Limonada',              2, 'SERVIDO')
+) AS v(restaurante, mesa, producto, cantidad, estado)
+JOIN restaurante r ON r.nombre = v.restaurante
+JOIN mesa m ON m.restaurante_id = r.id AND m.numero = v.mesa
+JOIN pedido p ON p.mesa_id = m.id
+JOIN categoria c ON c.restaurante_id = r.id
+JOIN producto pr ON pr.categoria_id = c.id AND pr.nombre = v.producto
+WHERE NOT EXISTS (SELECT 1 FROM pedido_detalle d WHERE d.pedido_id = p.id AND d.producto_id = pr.id);
+
+-- HU-17: mermas con los motivos globales del script.
+INSERT INTO registro_merma (empleado_id, ingrediente_id, cantidad, motivo_id, fecha_registro)
+SELECT e.id, i.id, v.cantidad, mm.id, NOW() - v.hace
+FROM (VALUES
+    ('GastroMind Demo - Sede Central', 'almacen.central@gastromind.demo', 'Tomate',      0.500, 'VENCIDO',    INTERVAL '12 hours'),
+    ('GastroMind Demo - Sede Central', 'cocina.central@gastromind.demo',  'Lomo de res', 0.300, 'MAL_MANEJO', INTERVAL '20 hours'),
+    ('GastroMind Demo - Sede Norte',   'cocina.norte@gastromind.demo',    'Limón',       0.200, 'DERRAMADO',  INTERVAL '10 hours')
+) AS v(restaurante, correo, insumo, cantidad, motivo, hace)
+JOIN restaurante r ON r.nombre = v.restaurante
+JOIN empleado e ON e.correo = v.correo
+JOIN ingrediente i ON i.restaurante_id = r.id AND i.nombre = v.insumo
+JOIN motivo_merma mm ON mm.nombre = v.motivo AND mm.es_global
+WHERE NOT EXISTS (SELECT 1 FROM registro_merma x WHERE x.ingrediente_id = i.id AND x.motivo_id = mm.id AND x.empleado_id = e.id);
+
+-- HU-15: kardex de la demo. Movimientos de cada compra, de cada platillo servido (receta x cantidad,
+-- lo registra el cocinero de la sede) y de cada merma, más un saldo inicial (AJUSTE) que hace que la
+-- suma dé el stock_actual. El saldo de cada fila es la suma acumulada, en orden de fecha.
+-- Si la migración 005 ya puso un saldo inicial automático en un insumo que ahora tiene historia,
+-- se reemplaza por el kardex completo. Un insumo con movimientos reales no se toca.
+WITH demo AS (
+    SELECT i.id AS ingrediente_id, i.stock_actual
+    FROM ingrediente i
+    JOIN restaurante r ON r.id = i.restaurante_id
+    WHERE r.nombre IN ('GastroMind Demo - Sede Central', 'GastroMind Demo - Sede Norte')
+), operaciones AS (
+    SELECT x.ingrediente_id, 'INGRESO' AS tipo, x.cantidad_recibida AS cantidad, x.empleado_id,
+           NULL::BIGINT AS pedido_detalle_id, x.id AS registro_ingreso_id, NULL::BIGINT AS registro_merma_id,
+           x.fecha_registro AS fecha
+    FROM registro_ingreso_proveedor x JOIN demo d ON d.ingrediente_id = x.ingrediente_id
+    UNION ALL
+    SELECT rd.ingrediente_id, 'CONSUMO', -(pd.cantidad * rd.cantidad_requerida),
+           (SELECT MIN(e.id) FROM empleado e JOIN rol ro ON ro.id = e.rol_id
+            WHERE e.restaurante_id = m.restaurante_id AND ro.nombre = 'COCINERO' AND e.estado = 'ACTIVO'),
+           pd.id, NULL, NULL, p.fecha_registro + INTERVAL '40 minutes'
+    FROM pedido_detalle pd
+    JOIN pedido p ON p.id = pd.pedido_id
+    JOIN mesa m ON m.id = p.mesa_id
+    JOIN producto pr ON pr.id = pd.producto_id AND pr.requiere_receta
+    JOIN receta_detalle rd ON rd.producto_id = pd.producto_id
+    JOIN demo d ON d.ingrediente_id = rd.ingrediente_id
+    WHERE pd.estado = 'SERVIDO'
+    UNION ALL
+    SELECT x.ingrediente_id, 'MERMA', -x.cantidad, x.empleado_id, NULL, NULL, x.id, x.fecha_registro
+    FROM registro_merma x JOIN demo d ON d.ingrediente_id = x.ingrediente_id
+), borrado AS (
+    DELETE FROM movimiento_inventario mi
+    WHERE mi.tipo = 'AJUSTE' AND mi.empleado_id IS NULL
+      AND mi.ingrediente_id IN (SELECT ingrediente_id FROM operaciones)
+      AND (SELECT COUNT(*) FROM movimiento_inventario y WHERE y.ingrediente_id = mi.ingrediente_id) = 1
+    RETURNING mi.ingrediente_id
+), pendientes AS (
+    -- Insumos de la demo sin movimientos (o cuyo único movimiento era el saldo automático que se acaba de borrar)
+    SELECT d.ingrediente_id, d.stock_actual
+    FROM demo d
+    WHERE d.ingrediente_id IN (SELECT ingrediente_id FROM borrado)
+       OR NOT EXISTS (SELECT 1 FROM movimiento_inventario y WHERE y.ingrediente_id = d.ingrediente_id)
+), inicial AS (
+    SELECT pe.ingrediente_id, 'AJUSTE' AS tipo,
+           pe.stock_actual - COALESCE(SUM(o.cantidad), 0) AS cantidad,
+           NULL::BIGINT AS empleado_id, NULL::BIGINT AS pedido_detalle_id,
+           NULL::BIGINT AS registro_ingreso_id, NULL::BIGINT AS registro_merma_id,
+           COALESCE(MIN(o.fecha), NOW()) - INTERVAL '1 day' AS fecha
+    FROM pendientes pe
+    LEFT JOIN operaciones o ON o.ingrediente_id = pe.ingrediente_id
+    GROUP BY pe.ingrediente_id, pe.stock_actual
+), todo AS (
+    SELECT i.*, 0 AS orden FROM inicial i WHERE i.cantidad <> 0
+    UNION ALL
+    SELECT o.*, 1 FROM operaciones o WHERE o.ingrediente_id IN (SELECT ingrediente_id FROM pendientes)
+)
+INSERT INTO movimiento_inventario
+    (ingrediente_id, tipo, cantidad, saldo, empleado_id, pedido_detalle_id, registro_ingreso_id, registro_merma_id, fecha)
+SELECT t.ingrediente_id, t.tipo, t.cantidad,
+       SUM(t.cantidad) OVER (PARTITION BY t.ingrediente_id ORDER BY t.fecha, t.orden
+                             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+       t.empleado_id, t.pedido_detalle_id, t.registro_ingreso_id, t.registro_merma_id, t.fecha
+FROM todo t
+ORDER BY t.ingrediente_id, t.fecha, t.orden;
 
 COMMIT;

@@ -4,7 +4,7 @@ Volver al [README](../README.md) · Script: [`script_database.sql`](script_datab
 
 PostgreSQL 16, **una sola BD** para Spring y Django. Todas las tablas cuelgan de `restaurante` (multi-tenant) e ids en `BIGINT`. El esquema lo manda `script_database.sql` + `migraciones/`: Spring arranca con `ddl-auto=validate` y Django usa `managed = False`.
 
-## Tablas (18)
+## Tablas (19)
 
 | Tabla | Para qué | HU / épica | Sprint |
 |---|---|---|---|
@@ -24,8 +24,9 @@ PostgreSQL 16, **una sola BD** para Spring y Django. Todas las tablas cuelgan de
 | `proveedor` / `proveedor_insumo` | Proveedores y precio por insumo | HU-22 | 4 |
 | `motivo_merma` | Catálogo global + propio | HU-17 | 4 |
 | `registro_merma` | Mermas reportadas | HU-17 a HU-19 | 4 |
+| `movimiento_inventario` | Cada cambio de stock con su saldo (kardex) | HU-13 a HU-15, HU-17 | 3 |
 
-**Kardex (Sprint 3):** se suma una tabla de movimientos de inventario, con su migración en `migraciones/`. Spring la escribe junto con `ingrediente.stock_actual` cuando se sirve un platillo (HU-13), entra una compra (HU-14) o se registra una merma (HU-17), y Django la lee para el kardex (HU-15) y las alertas (HU-16). Hasta que entre, el stock vive solo en `ingrediente.stock_actual`.
+**Kardex (Sprint 3, migración `005`):** `movimiento_inventario` guarda cada cambio de stock con la cantidad (+ entra, − sale) y el saldo que quedó. La escribe solo `InventarioService` de Spring, en la misma transacción que `ingrediente.stock_actual` y con la fila del insumo bloqueada, cuando se sirve un platillo (HU-13), entra una compra (HU-14) o se registra una merma (HU-17 y HU-18). Django la lee para el kardex (HU-15). El stock y las cantidades de inventario van con 3 decimales, como la receta.
 
 ## Diagrama entidad-relación
 
@@ -58,6 +59,11 @@ erDiagram
   empleado ||--o{ registro_ingreso_proveedor : registra
   ingrediente ||--o{ conteo_ciclico : "se cuenta"
   empleado ||--o{ conteo_ciclico : registra
+  ingrediente ||--o{ movimiento_inventario : "se mueve"
+  empleado ||--o{ movimiento_inventario : registra
+  pedido_detalle |o--o{ movimiento_inventario : "descuenta (CONSUMO)"
+  registro_ingreso_proveedor |o--o| movimiento_inventario : "suma (INGRESO)"
+  registro_merma |o--o| movimiento_inventario : "resta (MERMA)"
 
   restaurante {
     bigint id PK
@@ -191,6 +197,18 @@ erDiagram
     decimal cantidad_fisica_contada
     timestamp fecha_registro
   }
+  movimiento_inventario {
+    bigint id PK
+    bigint ingrediente_id FK
+    varchar tipo "INGRESO CONSUMO MERMA AJUSTE"
+    decimal cantidad "con signo"
+    decimal saldo "stock que quedó"
+    bigint empleado_id FK "NULL solo en el saldo inicial"
+    bigint pedido_detalle_id FK
+    bigint registro_ingreso_id FK
+    bigint registro_merma_id FK
+    timestamp fecha
+  }
 ```
 
 El diagrama trae todas las columnas del script; los tipos exactos (`DECIMAL(10,2)`, `VARCHAR(150)`…), los `CHECK`, los índices y los triggers están en el script.
@@ -200,3 +218,4 @@ El diagrama trae todas las columnas del script; los tipos exactos (`DECIMAL(10,2
 - `UNIQUE` para no repetir: correo del empleado, insumo por restaurante, insumo en una receta, mesa por restaurante, precio por proveedor e insumo.
 - Triggers `trg_receta_mismo_restaurante` y `trg_proveedor_insumo_mismo_restaurante`: una receta o un precio de proveedor no puede mezclar datos de dos restaurantes.
 - Sin `ON DELETE` hacia `empleado` ni `producto`: se desactivan (`estado`), no se borran, para no perder el historial.
+- `movimiento_inventario`: el signo de la cantidad tiene que cuadrar con el tipo, cada tipo trae solo su origen, y un mismo platillo, compra o merma no mueve el stock dos veces (`UNIQUE`).
