@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Base de pedidos del Sprint 3: crear un pedido y cambiar el estado de cada platillo.
+ * Base de pedidos del Sprint 3: crear un pedido, listar los vigentes y cambiar el estado de cada platillo.
  * La usan la HU-09 (mozo), la HU-10 y la HU-11 (cocina), la HU-12 (cerrar la mesa) y la HU-13 (descuento al servir).
  * El descuento de stock no va aquí: la HU-13 lo hace con InventarioService.registrarConsumo.
  */
@@ -60,6 +60,15 @@ public class PedidoService {
         this.mesaRepository = mesaRepository;
         this.productoRepository = productoRepository;
         this.pedidoRepository = pedidoRepository;
+    }
+
+    // Pedidos sin cerrar, el más antiguo primero: la comanda de cocina (HU-10) y lo que ve el mozo (HU-11)
+    @Transactional(readOnly = true)
+    public List<PedidoResponse> listarVigentes(Authentication authentication) {
+        Empleado empleado = empleadoActual.obtenerConRol(authentication, MOZO, COCINERO, ADMINISTRADOR);
+        return pedidoRepository.findByMesaRestauranteIdAndEstadoNotOrderByFechaRegistroAscIdAsc(
+                        empleado.getRestaurante().getId(), EstadoPedido.CERRADO)
+                .stream().map(PedidoResponse::from).toList();
     }
 
     @Transactional
