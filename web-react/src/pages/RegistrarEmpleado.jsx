@@ -15,14 +15,16 @@ const ROLES = [
   { id: 4, nombre: 'Mozo' },
 ];
 
-const FORM_VACIO = { nombreCompleto: '', correo: '', password: '', pinAcceso: '', rolId: '' };
+const FORM_VACIO = { nombreCompleto: '', correo: '', pinAcceso: '', rolId: '' };
 
 // HU-01: el administrador registra un empleado en su restaurante (el restaurante sale del token)
+// HU-01-b: sin contraseña (el empleado la crea con el enlace del correo); el PIN se muestra una sola vez
 function RegistrarEmpleado() {
   const [form, setForm] = useState(FORM_VACIO);
   const [erroresCampo, setErroresCampo] = useState({});
   const [error, setError] = useState('');
   const [exito, setExito] = useState('');
+  const [pinNuevo, setPinNuevo] = useState('');
   const [guardando, setGuardando] = useState(false);
 
   const { auth } = useAuth();
@@ -49,15 +51,17 @@ function RegistrarEmpleado() {
     e.preventDefault();
     setError('');
     setExito('');
+    setPinNuevo('');
     setErroresCampo({});
     setGuardando(true);
 
     const datos = { ...form, rolId: form.rolId === '' ? null : Number(form.rolId) };
-    if (datos.pinAcceso === '') delete datos.pinAcceso; // el PIN es opcional
+    if (datos.pinAcceso === '') delete datos.pinAcceso; // sin PIN, la API genera uno
 
     try {
       const response = await axios.post(API_URL, datos, conToken(auth.token));
-      setExito(`Empleado "${response.data.nombreCompleto}" registrado. Se le envía un correo de bienvenida a ${response.data.correo}.`);
+      setExito(`Empleado "${response.data.nombreCompleto}" registrado. Le llega un correo a ${response.data.correo} para crear su contraseña.`);
+      setPinNuevo(response.data.pinAcceso);
       setForm(FORM_VACIO);
     } catch (err) {
       const data = err.response?.data;
@@ -97,6 +101,15 @@ function RegistrarEmpleado() {
 
         {error && <p style={styles.error}>{error}</p>}
         {exito && <p style={styles.success}>{exito}</p>}
+        {pinNuevo && (
+          <div style={styles.pinBox}>
+            <span>PIN para la app</span>
+            <strong style={styles.pin}>{pinNuevo}</strong>
+            <span style={styles.detail}>
+              Anótalo y entrégaselo en persona: no se vuelve a mostrar ni va en el correo.
+            </span>
+          </div>
+        )}
 
         <form onSubmit={registrar} style={styles.form} noValidate>
           <div style={styles.grid}>
@@ -113,12 +126,6 @@ function RegistrarEmpleado() {
               {errorDe('correo')}
             </label>
             <label style={styles.label}>
-              Contraseña inicial *
-              <input name="password" type="password" value={form.password} onChange={cambiar} style={styles.input}
-                autoComplete="new-password" />
-              {errorDe('password')}
-            </label>
-            <label style={styles.label}>
               Rol *
               <select name="rolId" value={form.rolId} onChange={cambiar} style={styles.input}>
                 <option value="">-- Seleccionar rol --</option>
@@ -129,14 +136,15 @@ function RegistrarEmpleado() {
               {errorDe('rolId')}
             </label>
             <label style={styles.label}>
-              PIN de acceso (opcional)
+              PIN de 4 dígitos (opcional: si lo dejas vacío, se genera)
               <input name="pinAcceso" type="password" inputMode="numeric" value={form.pinAcceso} onChange={cambiar}
                 style={styles.input} maxLength={4} autoComplete="new-password" />
               {errorDe('pinAcceso')}
             </label>
           </div>
           <p style={styles.detail}>
-            El empleado nace ACTIVO en tu restaurante y recibe por correo sus credenciales iniciales.
+            El empleado nace ACTIVO en tu restaurante y recibe un correo con un enlace (24 h, un solo uso) para
+            crear su contraseña.
           </p>
           <button type="submit" disabled={guardando}
             style={{ ...styles.primaryButton, ...(guardando ? styles.buttonDisabled : {}) }}>
@@ -193,6 +201,21 @@ const styles = {
     borderRadius: '4px',
     fontSize: '14px',
     border: '1px solid #f5c6cb',
+  },
+  pinBox: {
+    display: 'grid',
+    gap: '4px',
+    margin: '0 0 16px 0',
+    padding: '12px',
+    border: '1px solid #c6dafc',
+    borderRadius: '4px',
+    backgroundColor: '#e8f0fe',
+    fontSize: '14px',
+  },
+  pin: {
+    fontFamily: 'monospace',
+    fontSize: '28px',
+    letterSpacing: '6px',
   },
   success: {
     margin: '0 0 16px 0',

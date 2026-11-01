@@ -29,6 +29,7 @@ import java.util.HexFormat;
  * - solicitar(): responde siempre igual (exista o no el correo) para no revelar qué correos están registrados.
  *   HL-035: con demasiadas solicitudes por correo o por IP responde 429, también igual exista o no el correo.
  * - restablecer(): CA-04, el enlace caduca y solo se usa una vez.
+ * - crearEnlaceBienvenida(): HU-01-b, el mismo enlace sirve para que un empleado nuevo cree su contraseña (24 h).
  */
 @Service
 public class RecuperacionService {
@@ -70,17 +71,7 @@ public class RecuperacionService {
             return;
         }
 
-        LocalDateTime ahora = LocalDateTime.now();
-        // Solo vale el último enlace: los anteriores sin usar dejan de servir
-        tokenRepository.findByEmpleadoIdAndUsadoEnIsNull(empleado.getId())
-                .forEach(anterior -> anterior.setUsadoEn(ahora));
-
-        String token = generarToken();
-        tokenRepository.save(TokenRecuperacion.builder()
-                .empleado(empleado)
-                .tokenHash(hash(token))
-                .expiraEn(ahora.plusMinutes(properties.getExpiracionMinutos()))
-                .build());
+        String token = nuevoToken(empleado, LocalDateTime.now().plusMinutes(properties.getExpiracionMinutos()));
 
         String enlace = properties.getUrlRestablecer() + "?token=" + token;
         try {
@@ -93,6 +84,28 @@ public class RecuperacionService {
             // No se cambia la respuesta: el cliente no debe saber si el correo existe
             log.error("No se pudo enviar el correo de recuperación al empleado {}", empleado.getId(), e);
         }
+    }
+
+    /** HU-01-b: el empleado recién registrado crea su contraseña con este enlace; nunca se le envía una. */
+    @Transactional
+    public String crearEnlaceBienvenida(Empleado empleado) {
+        String token = nuevoToken(empleado, LocalDateTime.now().plusHours(properties.getExpiracionBienvenidaHoras()));
+        return properties.getUrlRestablecer() + "?token=" + token + "&bienvenida=1";
+    }
+
+    private String nuevoToken(Empleado empleado, LocalDateTime expiraEn) {
+        LocalDateTime ahora = LocalDateTime.now();
+        // Solo vale el último enlace: los anteriores sin usar dejan de servir
+        tokenRepository.findByEmpleadoIdAndUsadoEnIsNull(empleado.getId())
+                .forEach(anterior -> anterior.setUsadoEn(ahora));
+
+        String token = generarToken();
+        tokenRepository.save(TokenRecuperacion.builder()
+                .empleado(empleado)
+                .tokenHash(hash(token))
+                .expiraEn(expiraEn)
+                .build());
+        return token;
     }
 
     @Transactional

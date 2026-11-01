@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * HU-04: configuración del enlace de recuperación.
  * expiracionMinutos: 15 (CA-04, decidido el 12/10). Se cambia solo en properties.
+ * HU-01-b: expiracionBienvenidaHoras, plazo del enlace del correo de bienvenida para crear la contraseña (24 h).
  * HL-035: en /recuperar, máximo de solicitudes por correo y por IP dentro de la ventana (en minutos).
  */
 @Configuration
@@ -13,6 +14,7 @@ import org.springframework.context.annotation.Configuration;
 public class RecuperacionProperties {
 
     private long expiracionMinutos = 15;
+    private long expiracionBienvenidaHoras = 24;
     private String urlRestablecer = "http://localhost:5173/restablecer";
     private String remitente = "no-responder@gastromind.demo";
     private int maxPorCorreo = 3;
@@ -25,6 +27,14 @@ public class RecuperacionProperties {
 
     public void setExpiracionMinutos(long expiracionMinutos) {
         this.expiracionMinutos = expiracionMinutos;
+    }
+
+    public long getExpiracionBienvenidaHoras() {
+        return expiracionBienvenidaHoras;
+    }
+
+    public void setExpiracionBienvenidaHoras(long expiracionBienvenidaHoras) {
+        this.expiracionBienvenidaHoras = expiracionBienvenidaHoras;
     }
 
     public String getUrlRestablecer() {

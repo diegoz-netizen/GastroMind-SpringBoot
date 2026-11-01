@@ -132,11 +132,12 @@ class FormatoErroresIntegrationTest {
     void validacionDelDto_400ConUnMensajePorCampo() throws Exception {
         ResultActions r = mockMvc.perform(post("/api/empleados").header("Authorization", bearer(admin))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"nombreCompleto\":\"\",\"correo\":\"no-es-correo\",\"password\":\"x\"}"));
+                .content("{\"nombreCompleto\":\"\",\"correo\":\"no-es-correo\",\"pinAcceso\":\"12a\"}"));
         formatoComun(r, 400, CodigoError.VALIDACION);
         r.andExpect(jsonPath("$.campos.nombreCompleto").isString())
                 .andExpect(jsonPath("$.campos.correo").value("El formato del correo es inválido"))
-                .andExpect(jsonPath("$.campos.rolId").isString());
+                .andExpect(jsonPath("$.campos.rolId").isString())
+                .andExpect(jsonPath("$.campos.pinAcceso").value("El PIN debe tener 4 dígitos"));
     }
 
     @Test
