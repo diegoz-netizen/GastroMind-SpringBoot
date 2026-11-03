@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -18,4 +19,7 @@ public interface MesaRepository extends JpaRepository<Mesa, Long> {
     // SELECT ... FOR UPDATE: dos mozos a la vez no pueden tomar la misma mesa
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Mesa> findWithLockByIdAndRestauranteId(Long id, Long restauranteId);
+
+    // Las mesas del restaurante para elegir una al tomar el pedido (HU-09), en orden de número
+    List<Mesa> findByRestauranteIdOrderByNumeroAsc(Long restauranteId);
 }
