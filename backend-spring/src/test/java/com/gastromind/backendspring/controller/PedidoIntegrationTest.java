@@ -24,10 +24,12 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -278,5 +280,59 @@ class PedidoIntegrationTest {
         pedido.setEstado(EstadoPedido.CERRADO);
         entityManager.flush();
         cambiar(pedido.getId(), plato, "EN_PREPARACION", tokenCocinero).andExpect(status().isConflict());
+    }
+
+    private Pedido pedidoEn(Mesa deMesa, EstadoPedido estado, LocalDateTime fecha, Producto producto) {
+        Pedido pedido = Pedido.builder().mesa(deMesa).empleado(mozo).estado(estado).fechaRegistro(fecha).build();
+        pedido.getDetalles().add(PedidoDetalle.builder().pedido(pedido).producto(producto).cantidad(2).build());
+        entityManager.persist(pedido);
+        return pedido;
+    }
+
+    @Test
+    void listar_DeberiaTraerLosVigentesDelRestauranteDelMasAntiguoAlMasNuevo() throws Exception {
+        LocalDateTime ahora = LocalDateTime.of(2026, 11, 1, 13, 0);
+        Mesa mesa2 = persistir(Mesa.builder().restaurante(restaurante).numero(2).build());
+        Pedido nuevo = pedidoEn(mesa, EstadoPedido.ABIERTO, ahora, lomo);
+        Pedido antiguo = pedidoEn(mesa2, EstadoPedido.EN_PREPARACION, ahora.minusMinutes(13), chicha);
+        Pedido servido = pedidoEn(mesa2, EstadoPedido.SERVIDO, ahora.minusMinutes(5), lomo);
+        pedidoEn(mesa2, EstadoPedido.CERRADO, ahora.minusHours(1), lomo);
+        Empleado mozoNorte = empleado(mesaOtroRestaurante.getRestaurante(), "MOZO", "otro@norte.com");
+        Pedido deNorte = Pedido.builder().mesa(mesaOtroRestaurante).empleado(mozoNorte).fechaRegistro(ahora).build();
+        deNorte.getDetalles().add(PedidoDetalle.builder().pedido(deNorte).producto(productoOtroRestaurante).cantidad(1).build());
+        entityManager.persist(deNorte);
+        entityManager.flush();
+        entityManager.clear();
+
+        mockMvc.perform(get("/api/pedidos").header("Authorization", tokenCocinero))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].id").value(antiguo.getId()))
+                .andExpect(jsonPath("$[0].mesaNumero").value(2))
+                .andExpect(jsonPath("$[0].fechaRegistro").value("2026-11-01T12:47:00"))
+                .andExpect(jsonPath("$[0].detalles[0].producto").value("Chicha"))
+                .andExpect(jsonPath("$[0].detalles[0].cantidad").value(2))
+                .andExpect(jsonPath("$[0].detalles[0].estado").value("PENDIENTE"))
+                .andExpect(jsonPath("$[1].id").value(servido.getId()))
+                .andExpect(jsonPath("$[2].id").value(nuevo.getId()));
+    }
+
+    @Test
+    void listar_ElMozoVeElCambioQueHizoCocina() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        cambiar(pedido.getId(), pedido.getDetalles().get(0).getId(), "EN_PREPARACION", tokenCocinero)
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/pedidos").header("Authorization", tokenMozo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].detalles[0].estado").value("EN_PREPARACION"))
+                .andExpect(jsonPath("$[0].detalles[1].estado").value("PENDIENTE"));
+    }
+
+    @Test
+    void listar_SinTokenOConOtroRol_DeberiaRechazarse() throws Exception {
+        mockMvc.perform(get("/api/pedidos")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/pedidos").header("Authorization", tokenAlmacenero))
+                .andExpect(status().isForbidden());
     }
 }

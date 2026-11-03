@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * Base de pedidos del Sprint 3 (lo usa la app Kotlin del mozo y de cocina).
  */
@@ -21,6 +23,11 @@ public class PedidoController {
 
     public PedidoController(PedidoService pedidoService) {
         this.pedidoService = pedidoService;
+    }
+
+    @GetMapping
+    public List<PedidoResponse> listarVigentes(Authentication authentication) {
+        return pedidoService.listarVigentes(authentication);
     }
 
     @PostMapping
