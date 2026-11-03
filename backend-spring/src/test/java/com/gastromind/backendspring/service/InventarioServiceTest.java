@@ -15,6 +15,8 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -29,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @DataJpaTest
 @ActiveProfiles("test")
 @Import(InventarioService.class)
+@RecordApplicationEvents
 class InventarioServiceTest {
 
     @Autowired
@@ -39,6 +42,9 @@ class InventarioServiceTest {
 
     @Autowired
     private EntityManager entityManager;
+
+    @Autowired
+    private ApplicationEvents eventos;
 
     private Restaurante norte;
     private Empleado almacenero;
@@ -243,5 +249,55 @@ class InventarioServiceTest {
         assertThrows(NullPointerException.class,
                 () -> inventarioService.registrarConsumo(sal.getId(), kg("1"), null, almacenero));
         assertEquals(0, movimientoRepository.count());
+    }
+
+    // HU-16: la alerta de stock mínimo se publica solo al cruzar el mínimo
+
+    private Ingrediente insumoConMinimo(String stock, String minimo) {
+        Ingrediente ingrediente = Ingrediente.builder().restaurante(almacenero.getRestaurante()).nombre("Tomate")
+                .unidadMedida("kg").stockActual(kg(stock)).stockMinimo(kg(minimo))
+                .costoUnitario(new BigDecimal("3.00")).build();
+        entityManager.persist(ingrediente);
+        entityManager.flush();
+        return ingrediente;
+    }
+
+    private List<AlertaStockMinimo> alertas() {
+        return eventos.stream(AlertaStockMinimo.class).toList();
+    }
+
+    @Test
+    void consumoQueLlegaAlMinimo_PublicaLaAlertaConElStockQueQuedo() {
+        Ingrediente tomate = insumoConMinimo("5.500", "5.000");
+
+        inventarioService.registrarConsumo(tomate.getId(), kg("0.500"), 40L, almacenero);
+
+        assertEquals(1, alertas().size());
+        AlertaStockMinimo alerta = alertas().get(0);
+        assertEquals(almacenero.getRestaurante().getId(), alerta.restauranteId());
+        assertEquals("Tomate", alerta.insumo());
+        assertEquals("kg", alerta.unidad());
+        assertEquals(kg("5.000"), alerta.stockActual());
+        assertEquals(kg("5.000"), alerta.stockMinimo());
+    }
+
+    @Test
+    void siYaEstabaEnElMinimo_ElSiguienteConsumoNoRepiteLaAlerta() {
+        Ingrediente tomate = insumoConMinimo("5.000", "5.000");
+
+        inventarioService.registrarConsumo(tomate.getId(), kg("0.500"), 41L, almacenero);
+        inventarioService.registrarMerma(tomate.getId(), kg("0.500"), 42L, almacenero);
+
+        assertTrue(alertas().isEmpty());
+    }
+
+    @Test
+    void conStockPorEncimaDelMinimo_OConUnIngreso_NoHayAlerta() {
+        Ingrediente tomate = insumoConMinimo("4.000", "5.000");
+
+        inventarioService.registrarIngreso(tomate.getId(), kg("3"), 43L, almacenero);
+        inventarioService.registrarConsumo(tomate.getId(), kg("1"), 44L, almacenero);
+
+        assertTrue(alertas().isEmpty());
     }
 }

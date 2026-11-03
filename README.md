@@ -55,6 +55,15 @@ flowchart LR
 - **Web:** ver [`web-react/README.md`](web-react/README.md).
 - **Ensayo de la demo:** `bash docs/ensayo_demo.sh`.
 
+## Alertas por correo (HU-16)
+
+Las manda **Spring** al administrador y a los almaceneros **activos** del restaurante, con la misma cuenta SMTP que el correo de bienvenida (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`).
+
+- **Stock mínimo, al instante:** cuando un platillo servido (HU-13) o una merma deja un insumo en su mínimo o debajo, y antes estaba por encima. Sale después de guardar la operación: si falla, no se manda nada. Si el insumo ya estaba bajo el mínimo, no se repite en cada platillo.
+- **Vencimiento, una vez al día:** a las 7:00 (hora de Lima), con los lotes vencidos o que vencen en 3 días o menos de insumos que todavía tienen stock (el mismo criterio que `GET /api/catalogo/alertas/` de Django). Corre solo mientras el backend está levantado; no hace falta cron.
+- **Para la demo:** `ALERTAS_VENCIMIENTO_CRON="0 * * * * *"` la corre cada minuto. Los correos `@gastromind.demo` del seed no existen: para verlos llegar, usar Mailtrap o cambiar el correo del admin por uno real del equipo.
+- **Gmail del proyecto:** `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, `MAIL_USERNAME=<la cuenta>` y `MAIL_PASSWORD=<contraseña de aplicación>`. Nunca en el repo.
+
 ## Formato de errores (HL-014)
 
 Spring y Django responden todos los errores igual (`GlobalExceptionHandler` aquí, `config/errores.py` en GastroMind-Django):

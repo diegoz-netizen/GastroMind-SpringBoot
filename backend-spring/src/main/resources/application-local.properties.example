@@ -18,3 +18,7 @@ gastromind.jwt.expiration-ms=86400000
 #   export MAIL_USERNAME=... MAIL_PASSWORD=...
 # spring.mail.username=TU_USUARIO_MAILTRAP
 # spring.mail.password=TU_PASSWORD_MAILTRAP
+# HU-16 (alertas): para la demo con el Gmail del proyecto, en vez de Mailtrap:
+#   export MAIL_HOST=smtp.gmail.com MAIL_PORT=587 MAIL_USERNAME=<la cuenta> MAIL_PASSWORD=<contraseña de aplicación>
+# Revisión de vencimientos cada minuto (por defecto, todos los días a las 7:00):
+#   export ALERTAS_VENCIMIENTO_CRON="0 * * * * *"
