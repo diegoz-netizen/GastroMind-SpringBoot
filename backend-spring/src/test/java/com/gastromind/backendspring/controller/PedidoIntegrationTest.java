@@ -36,7 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Base de pedidos de punta a punta (H2): crear un pedido (CA-09) y llevar cada platillo de PENDIENTE a SERVIDO.
+ * Base de pedidos de punta a punta (H2): crear un pedido (CA-09), sumarle una segunda ronda (HU-09) y llevar cada
+ * platillo de PENDIENTE a SERVIDO.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -280,6 +281,98 @@ class PedidoIntegrationTest {
         pedido.setEstado(EstadoPedido.CERRADO);
         entityManager.flush();
         cambiar(pedido.getId(), plato, "EN_PREPARACION", tokenCocinero).andExpect(status().isConflict());
+    }
+
+    private ResultActions agregar(Long pedidoId, String cuerpo, String autorizacion) throws Exception {
+        var peticion = post("/api/pedidos/" + pedidoId + "/detalles").contentType(MediaType.APPLICATION_JSON).content(cuerpo);
+        if (autorizacion != null) {
+            peticion.header("Authorization", autorizacion);
+        }
+        return mockMvc.perform(peticion);
+    }
+
+    private String items(Long productoId, int cantidad) {
+        return "{\"items\":[{\"productoId\":" + productoId + ",\"cantidad\":" + cantidad + "}]}";
+    }
+
+    @Test
+    void agregar_SegundaRonda_DeberiaSumarAlPedidoAbiertoSinTocarLoAnterior() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        PedidoDetalle plato1 = pedido.getDetalles().get(0);
+        plato1.setEstado(EstadoPlatillo.SERVIDO);
+        pedido.getDetalles().get(1).setEstado(EstadoPlatillo.SERVIDO);
+        pedido.setEstado(EstadoPedido.SERVIDO);
+        entityManager.flush();
+
+        // El lomo otra vez: es otra línea, con su propio estado
+        agregar(pedido.getId(), items(lomo.getId(), 3), tokenMozo)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(pedido.getId()))
+                .andExpect(jsonPath("$.estado").value("EN_PREPARACION"))
+                .andExpect(jsonPath("$.detalles.length()").value(3))
+                .andExpect(jsonPath("$.detalles[0].estado").value("SERVIDO"))
+                .andExpect(jsonPath("$.detalles[2].producto").value("Lomo saltado"))
+                .andExpect(jsonPath("$.detalles[2].cantidad").value(3))
+                .andExpect(jsonPath("$.detalles[2].estado").value("PENDIENTE"));
+
+        // Cocina ve la ronda nueva en la comanda
+        mockMvc.perform(get("/api/pedidos").header("Authorization", tokenCocinero))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].detalles.length()").value(3));
+        assertThat(mesa.getEstado()).isEqualTo(Mesa.OCUPADA);
+    }
+
+    @Test
+    void agregar_PedidoSoloConPendientes_DeberiaSeguirAbierto() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        agregar(pedido.getId(), items(chicha.getId(), 1), tokenMozo)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("ABIERTO"))
+                .andExpect(jsonPath("$.detalles.length()").value(3));
+    }
+
+    @Test
+    void agregar_DatosInvalidos_DeberiaResponder400() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        agregar(pedido.getId(), "{\"items\":[]}", tokenMozo).andExpect(status().isBadRequest());
+        agregar(pedido.getId(), "{}", tokenMozo).andExpect(status().isBadRequest());
+        agregar(pedido.getId(), items(lomo.getId(), 0), tokenMozo).andExpect(status().isBadRequest());
+        String repetido = "{\"productoId\":" + lomo.getId() + ",\"cantidad\":1}";
+        agregar(pedido.getId(), "{\"items\":[" + repetido + "," + repetido + "]}", tokenMozo)
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void agregar_SinTokenOConOtroRol_DeberiaRechazarse() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        agregar(pedido.getId(), items(lomo.getId(), 1), null).andExpect(status().isUnauthorized());
+        agregar(pedido.getId(), items(lomo.getId(), 1), tokenCocinero).andExpect(status().isForbidden());
+        agregar(pedido.getId(), items(lomo.getId(), 1), tokenAlmacenero).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void agregar_PedidoOPlatilloDeOtroRestaurante_DeberiaResponder404() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        agregar(pedido.getId(), items(lomo.getId(), 1), tokenOtroRestaurante).andExpect(status().isNotFound());
+        agregar(pedido.getId(), items(productoOtroRestaurante.getId(), 1), tokenMozo).andExpect(status().isNotFound());
+        agregar(999_999L, items(lomo.getId(), 1), tokenMozo).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void agregar_PedidoCerradoOPlatilloInactivo_DeberiaResponder409SinAgregarNada() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        chicha.setEstado("INACTIVO");
+        entityManager.flush();
+        String dos = "{\"items\":[{\"productoId\":" + lomo.getId() + ",\"cantidad\":1},"
+                + "{\"productoId\":" + chicha.getId() + ",\"cantidad\":1}]}";
+        agregar(pedido.getId(), dos, tokenMozo).andExpect(status().isConflict());
+
+        pedido.setEstado(EstadoPedido.CERRADO);
+        entityManager.flush();
+        agregar(pedido.getId(), items(lomo.getId(), 1), tokenMozo).andExpect(status().isConflict());
+        entityManager.clear();
+        assertThat(entityManager.find(Pedido.class, pedido.getId()).getDetalles()).hasSize(2);
     }
 
     private Pedido pedidoEn(Mesa deMesa, EstadoPedido estado, LocalDateTime fecha, Producto producto) {

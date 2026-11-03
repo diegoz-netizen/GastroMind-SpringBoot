@@ -1,5 +1,6 @@
 package com.gastromind.backendspring.service;
 
+import com.gastromind.backendspring.dto.AgregarPlatillosRequest;
 import com.gastromind.backendspring.dto.CambioEstadoPlatilloRequest;
 import com.gastromind.backendspring.dto.PedidoRequest;
 import com.gastromind.backendspring.dto.PedidoResponse;
@@ -25,13 +26,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * Base de pedidos del Sprint 3: crear un pedido, listar los vigentes y cambiar el estado de cada platillo.
+ * Base de pedidos del Sprint 3: crear un pedido, sumarle una segunda ronda, listar los vigentes y cambiar el
+ * estado de cada platillo.
  * La usan la HU-09 (mozo), la HU-10 y la HU-11 (cocina), la HU-12 (cerrar la mesa) y la HU-13 (descuento al servir).
  * HU-13: al pasar un platillo a SERVIDO se descuenta su receta con InventarioService, en la misma transacción.
  */
@@ -99,8 +102,40 @@ public class PedidoService {
         }
 
         Pedido pedido = Pedido.builder().mesa(mesa).empleado(empleado).build();
+        agregarItems(pedido, request.items(), restauranteId);
+
+        mesa.setEstado(Mesa.OCUPADA);
+        return PedidoResponse.from(pedidoRepository.saveAndFlush(pedido));
+    }
+
+    /**
+     * HU-09, segunda ronda: la mesa ocupada pide más y se suma a su pedido abierto, en vez de abrir otro
+     * (decisión del PO sobre la base de pedidos, punto 1). Lo nuevo entra PENDIENTE y va a cocina como cualquier
+     * platillo. Un platillo que ya está en el pedido puede volver a pedirse: es otra línea, con su propio estado.
+     */
+    @Transactional
+    public PedidoResponse agregarPlatillos(Long pedidoId, AgregarPlatillosRequest request,
+                                           Authentication authentication) {
+        Empleado empleado = empleadoActual.obtenerConRol(authentication, MOZO, ADMINISTRADOR);
+        Long restauranteId = empleado.getRestaurante().getId();
+
+        Pedido pedido = pedidoRepository.findWithLockByIdAndMesaRestauranteId(pedidoId, restauranteId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+        if (pedido.getEstado() == EstadoPedido.CERRADO) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El pedido ya está cerrado");
+        }
+
+        agregarItems(pedido, request.items(), restauranteId);
+        pedido.setEstado(estadoDelPedido(pedido.getDetalles(), pedido.getEstado()));
+        return PedidoResponse.from(pedidoRepository.saveAndFlush(pedido));
+    }
+
+    // Repetido dentro de la misma ronda: 400 (se usa la cantidad). Otro restaurante: 404. Inactivo: 409.
+    // Se valida todo antes de tocar el pedido, para que un rechazo no deje platillos a medias.
+    private void agregarItems(Pedido pedido, List<PedidoRequest.Item> items, Long restauranteId) {
+        List<PedidoDetalle> nuevos = new ArrayList<>();
         Set<Long> repetidos = new HashSet<>();
-        for (PedidoRequest.Item item : request.items()) {
+        for (PedidoRequest.Item item : items) {
             if (!repetidos.add(item.productoId())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hay un platillo repetido en el pedido");
             }
@@ -109,12 +144,9 @@ public class PedidoService {
             if (!Producto.ACTIVO.equals(producto.getEstado())) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "El platillo no está disponible");
             }
-            pedido.getDetalles().add(PedidoDetalle.builder()
-                    .pedido(pedido).producto(producto).cantidad(item.cantidad()).build());
+            nuevos.add(PedidoDetalle.builder().pedido(pedido).producto(producto).cantidad(item.cantidad()).build());
         }
-
-        mesa.setEstado(Mesa.OCUPADA);
-        return PedidoResponse.from(pedidoRepository.saveAndFlush(pedido));
+        pedido.getDetalles().addAll(nuevos);
     }
 
     @Transactional
