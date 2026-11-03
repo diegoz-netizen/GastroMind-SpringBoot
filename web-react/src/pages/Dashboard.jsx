@@ -18,13 +18,6 @@ function Dashboard() {
         <p style={styles.detail}>ID Empleado: {auth.empleadoId}</p>
         <p style={styles.detail}>Restaurante ID: {auth.restauranteId}</p>
 
-        <div style={styles.tokenBox}>
-          <p style={styles.tokenLabel}>Token JWT (primeros 60 caracteres):</p>
-          <code style={styles.token}>
-            {auth.token ? auth.token.substring(0, 60) + '...' : 'No hay token'}
-          </code>
-        </div>
-
         {auth.rol === 'ADMINISTRADOR' && (
           <button onClick={() => navigate('/empleados')} style={styles.primaryButton}>
             Gestionar empleados
@@ -78,23 +71,6 @@ const styles = {
     margin: '6px 0',
     fontSize: '14px',
     color: '#3c4043',
-  },
-  tokenBox: {
-    marginTop: '20px',
-    padding: '12px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '4px',
-    border: '1px solid #dadce0',
-  },
-  tokenLabel: {
-    margin: '0 0 8px 0',
-    fontSize: '12px',
-    color: '#5f6368',
-  },
-  token: {
-    fontSize: '11px',
-    color: '#3c4043',
-    wordBreak: 'break-all',
   },
   primaryButton: {
     marginTop: '24px',
