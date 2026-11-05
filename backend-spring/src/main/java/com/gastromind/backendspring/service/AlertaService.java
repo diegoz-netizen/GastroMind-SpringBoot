@@ -14,6 +14,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
@@ -33,6 +34,9 @@ public class AlertaService {
 
     static final List<String> ROLES_AVISADOS = List.of("ADMINISTRADOR", "ALMACENERO");
     static final int DIAS_AVISO_VENCIMIENTO = 3;
+    // La app corre en UTC (BackendSpringApplication), pero el "hoy" de los vencimientos es el de Lima
+    static final String ZONA_LIMA = "America/Lima";
+    private static final ZoneId LIMA = ZoneId.of(ZONA_LIMA);
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final String PIE = "\n\nRevisa la tarjeta \"Alertas de hoy\" en el Panel de GastroMind."
             + "\n\nEste es un correo automático, no respondas a este mensaje.";
@@ -46,7 +50,7 @@ public class AlertaService {
     public AlertaService(EmpleadoRepository empleadoRepository,
                          RegistroIngresoProveedorRepository registroIngresoRepository,
                          CorreoService correoService) {
-        this(empleadoRepository, registroIngresoRepository, correoService, Clock.systemDefaultZone());
+        this(empleadoRepository, registroIngresoRepository, correoService, Clock.system(LIMA));
     }
 
     // Para los tests: fija el "hoy" de la revisión de vencimientos
@@ -72,10 +76,10 @@ public class AlertaService {
     }
 
     /** Todos los días a las 7:00 (hora de Lima); la hora se cambia con ALERTAS_VENCIMIENTO_CRON. */
-    @Scheduled(cron = "${gastromind.alertas.vencimiento-cron}", zone = "America/Lima")
+    @Scheduled(cron = "${gastromind.alertas.vencimiento-cron}", zone = ZONA_LIMA)
     @Transactional(readOnly = true)
     public void avisarVencimientos() {
-        LocalDate hoy = LocalDate.now(clock);
+        LocalDate hoy = LocalDate.now(clock.withZone(LIMA));
         Map<Long, List<RegistroIngresoProveedor>> porRestaurante = registroIngresoRepository
                 .findByFechaVencimientoLessThanEqualAndIngredienteStockActualGreaterThanOrderByFechaVencimientoAscIdAsc(
                         hoy.plusDays(DIAS_AVISO_VENCIMIENTO), BigDecimal.ZERO)

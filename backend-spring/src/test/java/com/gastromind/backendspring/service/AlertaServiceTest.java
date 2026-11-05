@@ -18,8 +18,10 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -147,6 +149,24 @@ class AlertaServiceTest {
         assertFalse(texto.contains("Arroz"));
         // Del más urgente al menos urgente
         assertTrue(texto.indexOf("Pescado") < texto.indexOf("Pollo") && texto.indexOf("Pollo") < texto.indexOf("Leche"));
+    }
+
+    @Test
+    void vencimientos_DeNocheEnLima_UsanLaFechaDeLimaAunqueLaAppCorraEnUtc() {
+        // 3/11 a las 20:02 en Lima = 4/11 01:02 en UTC (la zona de la app)
+        Clock relojUtc = Clock.fixed(Instant.parse("2026-11-04T01:02:00Z"), ZoneOffset.UTC);
+        alertaService = new AlertaService(empleadoRepository, registroIngresoRepository, correoService, relojUtc);
+        lote(central, "Pollo", "3.000", "AV-01", HOY.plusDays(3));
+        lote(central, "Tomate", "1.000", "MM-01", HOY);
+
+        alertaService.avisarVencimientos();
+
+        ArgumentCaptor<String> asunto = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> cuerpo = ArgumentCaptor.forClass(String.class);
+        correosEnviados(2, asunto, cuerpo);
+        assertEquals("GastroMind · Insumos por vencer (03/11/2026)", asunto.getValue());
+        assertTrue(cuerpo.getValue().contains("- Tomate (lote MM-01): vence hoy"));
+        assertTrue(cuerpo.getValue().contains("- Pollo (lote AV-01): vence el 06/11/2026 (en 3 días)"));
     }
 
     @Test
