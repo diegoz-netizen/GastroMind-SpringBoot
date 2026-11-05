@@ -2,6 +2,7 @@ package com.gastromind.backendspring.controller;
 
 import com.gastromind.backendspring.dto.AgregarPlatillosRequest;
 import com.gastromind.backendspring.dto.CambioEstadoPlatilloRequest;
+import com.gastromind.backendspring.dto.CuentaResponse;
 import com.gastromind.backendspring.dto.PedidoRequest;
 import com.gastromind.backendspring.dto.PedidoResponse;
 import com.gastromind.backendspring.service.PedidoService;
@@ -51,5 +52,11 @@ public class PedidoController {
                                                 @Valid @RequestBody CambioEstadoPlatilloRequest request,
                                                 Authentication authentication) {
         return pedidoService.cambiarEstadoPlatillo(pedidoId, detalleId, request, authentication);
+    }
+
+    // HU-12: cierra la mesa y devuelve la cuenta con lo servido
+    @PostMapping("/{pedidoId}/cerrar")
+    public CuentaResponse cerrar(@PathVariable Long pedidoId, Authentication authentication) {
+        return pedidoService.cerrar(pedidoId, authentication);
     }
 }

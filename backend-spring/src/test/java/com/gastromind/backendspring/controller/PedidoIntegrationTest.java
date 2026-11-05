@@ -428,4 +428,114 @@ class PedidoIntegrationTest {
         mockMvc.perform(get("/api/pedidos").header("Authorization", tokenAlmacenero))
                 .andExpect(status().isForbidden());
     }
+
+    // HU-12: cerrar la mesa y generar la cuenta (CA-12)
+
+    private ResultActions cerrar(Long pedidoId, String autorizacion) throws Exception {
+        var peticion = post("/api/pedidos/" + pedidoId + "/cerrar");
+        if (autorizacion != null) {
+            peticion.header("Authorization", autorizacion);
+        }
+        return mockMvc.perform(peticion);
+    }
+
+    // Pone cada platillo del pedido en el estado indicado, en orden
+    private void ponerEstados(Pedido pedido, EstadoPlatillo... estados) {
+        for (int i = 0; i < estados.length; i++) {
+            pedido.getDetalles().get(i).setEstado(estados[i]);
+        }
+        entityManager.flush();
+    }
+
+    @Test
+    void cerrar_DeberiaCerrarElPedidoLiberarLaMesaYSumarSoloLoServido() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        pedido.getDetalles().add(PedidoDetalle.builder().pedido(pedido).producto(lomo).cantidad(3).build());
+        entityManager.flush();
+        ponerEstados(pedido, EstadoPlatillo.SERVIDO, EstadoPlatillo.SERVIDO, EstadoPlatillo.ANULADO);
+
+        cerrar(pedido.getId(), tokenMozo)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pedidoId").value(pedido.getId()))
+                .andExpect(jsonPath("$.mesaNumero").value(1))
+                .andExpect(jsonPath("$.estado").value("CERRADO"))
+                .andExpect(jsonPath("$.lineas.length()").value(2))
+                .andExpect(jsonPath("$.lineas[0].producto").value("Lomo saltado"))
+                .andExpect(jsonPath("$.lineas[0].subtotal").value(25.0))
+                .andExpect(jsonPath("$.lineas[1].producto").value("Chicha"))
+                .andExpect(jsonPath("$.lineas[1].cantidad").value(2))
+                .andExpect(jsonPath("$.lineas[1].precioUnitario").value(25.0))
+                .andExpect(jsonPath("$.lineas[1].subtotal").value(50.0))
+                .andExpect(jsonPath("$.total").value(75.0));
+
+        entityManager.clear();
+        assertThat(entityManager.find(Pedido.class, pedido.getId()).getEstado()).isEqualTo(EstadoPedido.CERRADO);
+        assertThat(entityManager.find(Mesa.class, mesa.getId()).getEstado()).isEqualTo(Mesa.LIBRE);
+        // La mesa libre recibe un pedido nuevo
+        crear(cuerpo(mesa.getId(), lomo.getId(), 1), tokenMozo).andExpect(status().isCreated());
+    }
+
+    @Test
+    void cerrar_ElAdministradorTambienPuede() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        ponerEstados(pedido, EstadoPlatillo.SERVIDO, EstadoPlatillo.SERVIDO);
+        cerrar(pedido.getId(), token(empleado(restaurante, "ADMINISTRADOR", "admin@test.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(75.0));
+    }
+
+    @Test
+    void cerrar_TodoAnulado_DeberiaCerrarConTotalCeroYLiberarLaMesa() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        ponerEstados(pedido, EstadoPlatillo.ANULADO, EstadoPlatillo.ANULADO);
+
+        cerrar(pedido.getId(), tokenMozo)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lineas.length()").value(0))
+                .andExpect(jsonPath("$.total").value(0));
+        entityManager.clear();
+        assertThat(entityManager.find(Mesa.class, mesa.getId()).getEstado()).isEqualTo(Mesa.LIBRE);
+    }
+
+    @Test
+    void cerrar_ConPlatillosSinServir_DeberiaResponder409SinCerrar() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        for (EstadoPlatillo pendiente : new EstadoPlatillo[]{
+                EstadoPlatillo.PENDIENTE, EstadoPlatillo.EN_PREPARACION, EstadoPlatillo.LISTO}) {
+            ponerEstados(pedido, EstadoPlatillo.SERVIDO, pendiente);
+            cerrar(pedido.getId(), tokenMozo)
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.mensaje").value("Faltan servir o anular: Chicha (" + pendiente + ")"));
+        }
+        entityManager.clear();
+        assertThat(entityManager.find(Pedido.class, pedido.getId()).getEstado()).isNotEqualTo(EstadoPedido.CERRADO);
+        assertThat(entityManager.find(Mesa.class, mesa.getId()).getEstado()).isEqualTo(Mesa.OCUPADA);
+    }
+
+    @Test
+    void cerrar_PedidoCerrado_NoAdmiteMasPlatillosNiCambios() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        ponerEstados(pedido, EstadoPlatillo.SERVIDO, EstadoPlatillo.ANULADO);
+        cerrar(pedido.getId(), tokenMozo).andExpect(status().isOk());
+
+        cerrar(pedido.getId(), tokenMozo).andExpect(status().isConflict());
+        agregar(pedido.getId(), items(lomo.getId(), 1), tokenMozo).andExpect(status().isConflict());
+        cambiar(pedido.getId(), pedido.getDetalles().get(1).getId(), "EN_PREPARACION", tokenCocinero)
+                .andExpect(status().isConflict());
+        entityManager.clear();
+        assertThat(entityManager.find(Pedido.class, pedido.getId()).getDetalles()).hasSize(2);
+    }
+
+    @Test
+    void cerrar_SinTokenConOtroRolOOtroRestaurante_DeberiaRechazarse() throws Exception {
+        Pedido pedido = pedidoConDosPlatillos();
+        ponerEstados(pedido, EstadoPlatillo.SERVIDO, EstadoPlatillo.SERVIDO);
+        cerrar(pedido.getId(), null).andExpect(status().isUnauthorized());
+        cerrar(pedido.getId(), tokenCocinero).andExpect(status().isForbidden());
+        cerrar(pedido.getId(), tokenAlmacenero).andExpect(status().isForbidden());
+        cerrar(pedido.getId(), tokenOtroRestaurante).andExpect(status().isNotFound());
+        cerrar(999_999L, tokenMozo).andExpect(status().isNotFound());
+        entityManager.clear();
+        assertThat(entityManager.find(Pedido.class, pedido.getId()).getEstado()).isNotEqualTo(EstadoPedido.CERRADO);
+    }
 }
