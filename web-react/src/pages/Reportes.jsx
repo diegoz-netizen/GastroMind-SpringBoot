@@ -109,7 +109,7 @@ const styles = {
     cursor: 'pointer',
     marginBottom: '-2px',
   },
-  pestanaActiva: { color: '#1a73e8', borderBottomColor: '#1a73e8', fontWeight: '600' },
+  pestanaActiva: { color: '#1a73e8', borderBottom: '3px solid #1a73e8', fontWeight: '600' },
   secondaryButton: {
     padding: '8px 14px',
     fontSize: '14px',
