@@ -22,4 +22,7 @@ public interface MesaRepository extends JpaRepository<Mesa, Long> {
 
     // Las mesas del restaurante para elegir una al tomar el pedido (HU-09), en orden de número
     List<Mesa> findByRestauranteIdOrderByNumeroAsc(Long restauranteId);
+
+    // HU-26: el número de mesa no se repite dentro del restaurante
+    boolean existsByRestauranteIdAndNumero(Long restauranteId, Integer numero);
 }

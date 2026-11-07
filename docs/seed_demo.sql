@@ -185,24 +185,24 @@ WHERE NOT EXISTS (SELECT 1 FROM receta_detalle d WHERE d.producto_id = p.id AND 
 -- saldo inicial (AJUSTE) que hace que la suma de los movimientos dé el stock actual.
 -- ============================================================
 
--- HU-09 / HU-26: mesas del salón. La 3 de Central queda OCUPADA con un pedido en cocina.
-INSERT INTO mesa (restaurante_id, numero, estado)
-SELECT r.id, v.numero, v.estado
+-- HU-09 / HU-26: mesas del salón, con su capacidad y zona. La 3 de Central queda OCUPADA con un pedido en cocina.
+INSERT INTO mesa (restaurante_id, numero, estado, capacidad, zona)
+SELECT r.id, v.numero, v.estado, v.capacidad, v.zona
 FROM (VALUES
-    ('GastroMind Demo - Sede Central', 1, 'LIBRE'),
-    ('GastroMind Demo - Sede Central', 2, 'LIBRE'),
-    ('GastroMind Demo - Sede Central', 3, 'OCUPADA'),
-    ('GastroMind Demo - Sede Central', 4, 'LIBRE'),
-    ('GastroMind Demo - Sede Central', 5, 'LIBRE'),
-    ('GastroMind Demo - Sede Central', 6, 'LIBRE'),
-    ('GastroMind Demo - Sede Central', 7, 'LIBRE'),
-    ('GastroMind Demo - Sede Central', 8, 'LIBRE'),
-    ('GastroMind Demo - Sede Norte',   1, 'LIBRE'),
-    ('GastroMind Demo - Sede Norte',   2, 'LIBRE'),
-    ('GastroMind Demo - Sede Norte',   3, 'LIBRE'),
-    ('GastroMind Demo - Sede Norte',   4, 'LIBRE'),
-    ('GastroMind Demo - Sede Norte',   5, 'LIBRE')
-) AS v(restaurante, numero, estado)
+    ('GastroMind Demo - Sede Central', 1, 'LIBRE',   2, 'Salón'),
+    ('GastroMind Demo - Sede Central', 2, 'LIBRE',   4, 'Salón'),
+    ('GastroMind Demo - Sede Central', 3, 'OCUPADA', 4, 'Salón'),
+    ('GastroMind Demo - Sede Central', 4, 'LIBRE',   4, 'Salón'),
+    ('GastroMind Demo - Sede Central', 5, 'LIBRE',   6, 'Salón'),
+    ('GastroMind Demo - Sede Central', 6, 'LIBRE',   4, 'Terraza'),
+    ('GastroMind Demo - Sede Central', 7, 'LIBRE',   4, 'Terraza'),
+    ('GastroMind Demo - Sede Central', 8, 'LIBRE',   8, 'Terraza'),
+    ('GastroMind Demo - Sede Norte',   1, 'LIBRE',   2, 'Salón'),
+    ('GastroMind Demo - Sede Norte',   2, 'LIBRE',   4, 'Salón'),
+    ('GastroMind Demo - Sede Norte',   3, 'LIBRE',   4, 'Salón'),
+    ('GastroMind Demo - Sede Norte',   4, 'LIBRE',   6, 'Salón'),
+    ('GastroMind Demo - Sede Norte',   5, 'LIBRE',   4, 'Barra')
+) AS v(restaurante, numero, estado, capacidad, zona)
 JOIN restaurante r ON r.nombre = v.restaurante
 WHERE NOT EXISTS (SELECT 1 FROM mesa m WHERE m.restaurante_id = r.id AND m.numero = v.numero)
 ORDER BY r.id, v.numero;
