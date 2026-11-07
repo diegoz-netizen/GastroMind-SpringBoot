@@ -1,5 +1,6 @@
 package com.gastromind.backendspring.controller;
 
+import com.gastromind.backendspring.dto.AgregarPlatillosRequest;
 import com.gastromind.backendspring.dto.CambioEstadoPlatilloRequest;
 import com.gastromind.backendspring.dto.PedidoRequest;
 import com.gastromind.backendspring.dto.PedidoResponse;
@@ -34,6 +35,14 @@ public class PedidoController {
     public ResponseEntity<PedidoResponse> crear(@Valid @RequestBody PedidoRequest request,
                                                 Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.crear(request, authentication));
+    }
+
+    // HU-09, segunda ronda: suma platillos al pedido abierto de la mesa
+    @PostMapping("/{pedidoId}/detalles")
+    public PedidoResponse agregarPlatillos(@PathVariable Long pedidoId,
+                                           @Valid @RequestBody AgregarPlatillosRequest request,
+                                           Authentication authentication) {
+        return pedidoService.agregarPlatillos(pedidoId, request, authentication);
     }
 
     @PatchMapping("/{pedidoId}/detalles/{detalleId}/estado")
