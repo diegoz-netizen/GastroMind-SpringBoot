@@ -45,7 +45,7 @@ function Dashboard() {
         )}
 
         <button onClick={logout} style={styles.logoutButton}>
-          Cerrar sesion
+          Cerrar sesión
         </button>
 
         {veAlertas && <AlertasDeHoy token={auth.token} />}

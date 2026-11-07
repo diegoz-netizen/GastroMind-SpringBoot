@@ -133,7 +133,9 @@ CREATE TABLE proveedor_insumo (
     ingrediente_id      BIGINT NOT NULL REFERENCES ingrediente(id),
     precio_unitario     DECIMAL(10,2) NOT NULL CHECK (precio_unitario > 0),
     tiempo_entrega_dias INT NOT NULL CHECK (tiempo_entrega_dias >= 0),
-    UNIQUE (proveedor_id, ingrediente_id)           -- un precio vigente por proveedor e insumo
+    flete               DECIMAL(10,2) NOT NULL DEFAULT 0,   -- HU-22: lo que cobra por traer el pedido (migración 008)
+    UNIQUE (proveedor_id, ingrediente_id),          -- un precio vigente por proveedor e insumo
+    CONSTRAINT chk_flete_no_negativo CHECK (flete >= 0)
 );
 
 -- ---------- MOTIVO_MERMA ----------

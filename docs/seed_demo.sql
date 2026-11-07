@@ -221,21 +221,24 @@ JOIN restaurante r ON r.nombre = v.restaurante
 WHERE NOT EXISTS (SELECT 1 FROM proveedor p WHERE p.restaurante_id = r.id AND p.nombre = v.nombre)
 ORDER BY v.orden;
 
--- HU-22: precio y tiempo de entrega de cada proveedor por insumo.
-INSERT INTO proveedor_insumo (proveedor_id, ingrediente_id, precio_unitario, tiempo_entrega_dias)
-SELECT p.id, i.id, v.precio, v.dias
+-- HU-22: precio, tiempo de entrega y flete de cada proveedor por insumo.
+-- El Pollo de la Sede Central tiene dos proveedores (CA-22): con 10 kg sale más barato Avícola
+-- (S/ 112,00 contra S/ 117,00) y con 20 kg el Mercado (S/ 222,00 contra S/ 224,00), por el flete.
+INSERT INTO proveedor_insumo (proveedor_id, ingrediente_id, precio_unitario, tiempo_entrega_dias, flete)
+SELECT p.id, i.id, v.precio, v.dias, v.flete
 FROM (VALUES
-    ('GastroMind Demo - Sede Central', 'Avícola Santa Rosa',            'Pollo',          11.20, 1),
-    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Tomate',          4.30, 1),
-    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Cebolla roja',    3.00, 1),
-    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Papa amarilla',   2.60, 1),
-    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Arroz',           3.70, 2),
-    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Ají amarillo',   11.50, 1),
-    ('GastroMind Demo - Sede Central', 'Carnes del Valle',              'Lomo de res',    37.50, 2),
-    ('GastroMind Demo - Sede Norte',   'Pescados del Litoral',          'Pescado',        17.50, 0),
-    ('GastroMind Demo - Sede Norte',   'Frutas y Cítricos del Norte',   'Limón',           4.00, 1),
-    ('GastroMind Demo - Sede Norte',   'Frutas y Cítricos del Norte',   'Camote',          2.40, 1)
-) AS v(restaurante, proveedor, insumo, precio, dias)
+    ('GastroMind Demo - Sede Central', 'Avícola Santa Rosa',            'Pollo',          11.20, 1,  0.00),
+    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Pollo',          10.50, 2, 12.00),
+    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Tomate',          4.30, 1,  0.00),
+    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Cebolla roja',    3.00, 1,  0.00),
+    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Papa amarilla',   2.60, 1,  0.00),
+    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Arroz',           3.70, 2,  0.00),
+    ('GastroMind Demo - Sede Central', 'Mercado Mayorista - Puesto 14', 'Ají amarillo',   11.50, 1,  0.00),
+    ('GastroMind Demo - Sede Central', 'Carnes del Valle',              'Lomo de res',    37.50, 2,  5.00),
+    ('GastroMind Demo - Sede Norte',   'Pescados del Litoral',          'Pescado',        17.50, 0,  0.00),
+    ('GastroMind Demo - Sede Norte',   'Frutas y Cítricos del Norte',   'Limón',           4.00, 1,  0.00),
+    ('GastroMind Demo - Sede Norte',   'Frutas y Cítricos del Norte',   'Camote',          2.40, 1,  0.00)
+) AS v(restaurante, proveedor, insumo, precio, dias, flete)
 JOIN restaurante r ON r.nombre = v.restaurante
 JOIN proveedor p ON p.restaurante_id = r.id AND p.nombre = v.proveedor
 JOIN ingrediente i ON i.restaurante_id = r.id AND i.nombre = v.insumo

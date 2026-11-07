@@ -45,7 +45,7 @@ function Reportes() {
               Volver
             </button>
             <button onClick={cerrarSesion} style={styles.logoutButton}>
-              Cerrar sesion
+              Cerrar sesión
             </button>
           </div>
         </div>
