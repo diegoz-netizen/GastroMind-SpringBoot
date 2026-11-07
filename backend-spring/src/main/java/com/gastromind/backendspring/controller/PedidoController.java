@@ -1,6 +1,7 @@
 package com.gastromind.backendspring.controller;
 
 import com.gastromind.backendspring.dto.AgregarPlatillosRequest;
+import com.gastromind.backendspring.dto.AnularPlatilloRequest;
 import com.gastromind.backendspring.dto.CambioEstadoPlatilloRequest;
 import com.gastromind.backendspring.dto.CuentaResponse;
 import com.gastromind.backendspring.dto.PedidoRequest;
@@ -52,6 +53,14 @@ public class PedidoController {
                                                 @Valid @RequestBody CambioEstadoPlatilloRequest request,
                                                 Authentication authentication) {
         return pedidoService.cambiarEstadoPlatillo(pedidoId, detalleId, request, authentication);
+    }
+
+    // HU-18: anula un platillo; si ya entró a cocina, sus insumos quedan como merma con el motivo elegido
+    @PostMapping("/{pedidoId}/detalles/{detalleId}/anular")
+    public PedidoResponse anular(@PathVariable Long pedidoId, @PathVariable Long detalleId,
+                                 @RequestBody(required = false) AnularPlatilloRequest request,
+                                 Authentication authentication) {
+        return pedidoService.anular(pedidoId, detalleId, request, authentication);
     }
 
     // HU-12: cierra la mesa y devuelve la cuenta con lo servido

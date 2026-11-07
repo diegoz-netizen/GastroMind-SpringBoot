@@ -1,6 +1,7 @@
 package com.gastromind.backendspring.service;
 
 import com.gastromind.backendspring.dto.AgregarPlatillosRequest;
+import com.gastromind.backendspring.dto.AnularPlatilloRequest;
 import com.gastromind.backendspring.dto.CambioEstadoPlatilloRequest;
 import com.gastromind.backendspring.dto.CuentaResponse;
 import com.gastromind.backendspring.dto.PedidoRequest;
@@ -9,6 +10,7 @@ import com.gastromind.backendspring.entity.Empleado;
 import com.gastromind.backendspring.entity.EstadoPedido;
 import com.gastromind.backendspring.entity.EstadoPlatillo;
 import com.gastromind.backendspring.entity.Mesa;
+import com.gastromind.backendspring.entity.MotivoMerma;
 import com.gastromind.backendspring.entity.Pedido;
 import com.gastromind.backendspring.entity.PedidoDetalle;
 import com.gastromind.backendspring.entity.Producto;
@@ -38,6 +40,7 @@ import java.util.Set;
  * estado de cada platillo.
  * La usan la HU-09 (mozo), la HU-10 y la HU-11 (cocina), la HU-12 (cerrar la mesa) y la HU-13 (descuento al servir).
  * HU-13: al pasar un platillo a SERVIDO se descuenta su receta con InventarioService, en la misma transacción.
+ * HU-18: un platillo que ya entró a cocina y se anula registra sus insumos como merma, con MermaService.
  */
 @Service
 public class PedidoService {
@@ -66,19 +69,22 @@ public class PedidoService {
     private final PedidoRepository pedidoRepository;
     private final RecetaDetalleRepository recetaDetalleRepository;
     private final InventarioService inventarioService;
+    private final MermaService mermaService;
 
     public PedidoService(EmpleadoActual empleadoActual,
                          MesaRepository mesaRepository,
                          ProductoRepository productoRepository,
                          PedidoRepository pedidoRepository,
                          RecetaDetalleRepository recetaDetalleRepository,
-                         InventarioService inventarioService) {
+                         InventarioService inventarioService,
+                         MermaService mermaService) {
         this.empleadoActual = empleadoActual;
         this.mesaRepository = mesaRepository;
         this.productoRepository = productoRepository;
         this.pedidoRepository = pedidoRepository;
         this.recetaDetalleRepository = recetaDetalleRepository;
         this.inventarioService = inventarioService;
+        this.mermaService = mermaService;
     }
 
     // Pedidos sin cerrar, el más antiguo primero: la comanda de cocina (HU-10) y lo que ve el mozo (HU-11)
@@ -212,6 +218,62 @@ public class PedidoService {
         pedido.setEstado(EstadoPedido.CERRADO);
         pedido.getMesa().setEstado(Mesa.LIBRE);
         return CuentaResponse.from(pedidoRepository.saveAndFlush(pedido));
+    }
+
+    /**
+     * HU-18 (CA-18): anula un platillo del pedido.
+     * - PENDIENTE: no se cocinó nada; se anula sin merma (mozo o administrador, igual que con el PATCH de estado).
+     * - EN_PREPARACION o LISTO: ya se usaron los insumos. Pide el motivo y registra como merma cada insumo RECETA de
+     *   la receta (cantidad requerida x porciones), con MermaService: descuenta el stock y deja el movimiento MERMA.
+     *   Lo pueden hacer el cocinero, el mozo o el administrador.
+     * SERVIDO o ANULADO no se anulan (409). Si una merma falla, se deshace todo y el platillo sigue como estaba.
+     */
+    @Transactional
+    public PedidoResponse anular(Long pedidoId, Long detalleId, AnularPlatilloRequest request,
+                                 Authentication authentication) {
+        Empleado empleado = empleadoActual.obtenerConRol(authentication, MOZO, COCINERO, ADMINISTRADOR);
+        Long restauranteId = empleado.getRestaurante().getId();
+
+        Pedido pedido = pedidoRepository.findWithLockByIdAndMesaRestauranteId(pedidoId, restauranteId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+        PedidoDetalle detalle = pedido.getDetalles().stream()
+                .filter(d -> d.getId().equals(detalleId))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Platillo no encontrado"));
+        if (pedido.getEstado() == EstadoPedido.CERRADO) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El pedido ya está cerrado");
+        }
+
+        EstadoPlatillo estado = detalle.getEstado();
+        String rol = empleado.getRol().getNombre().toUpperCase();
+        if (estado == EstadoPlatillo.SERVIDO || estado == EstadoPlatillo.ANULADO) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Un platillo " + estado + " no se puede anular");
+        }
+        if (estado == EstadoPlatillo.PENDIENTE) {
+            if (!TRANSICIONES.get(EstadoPlatillo.PENDIENTE).get(EstadoPlatillo.ANULADO).contains(rol)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Su rol no puede hacer este cambio");
+            }
+        } else {
+            // Ya entró a cocina: lo usado es merma (motivo obligatorio, global o del restaurante)
+            MotivoMerma motivo = mermaService.motivoDisponible(request == null ? null : request.motivoId(), empleado);
+            registrarMerma(detalle, motivo, empleado);
+        }
+
+        detalle.setEstado(EstadoPlatillo.ANULADO);
+        pedido.setEstado(estadoDelPedido(pedido.getDetalles(), pedido.getEstado()));
+        return PedidoResponse.from(pedidoRepository.saveAndFlush(pedido));
+    }
+
+    // HU-18: lo mismo que descontaría al servir (HU-13), pero como merma
+    private void registrarMerma(PedidoDetalle detalle, MotivoMerma motivo, Empleado empleado) {
+        BigDecimal porciones = BigDecimal.valueOf(detalle.getCantidad());
+        for (RecetaDetalle linea : recetaDetalleRepository.findByProductoIdOrderByIngredienteIdAsc(
+                detalle.getProducto().getId())) {
+            if (CONTROL_RECETA.equals(linea.getIngrediente().getTipoControl())) {
+                mermaService.registrar(linea.getIngrediente(), linea.getCantidadRequerida().multiply(porciones),
+                        motivo, empleado);
+            }
+        }
     }
 
     /**

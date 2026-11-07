@@ -68,13 +68,21 @@ public class MermaService {
         // Insumo de otro restaurante se trata como inexistente (no se revela que existe)
         Ingrediente insumo = ingredienteRepository.findByIdAndRestauranteId(request.ingredienteId(), restauranteId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Insumo no encontrado"));
-        // Solo los globales y los del propio restaurante
-        MotivoMerma motivo = motivoRepository.disponibles(restauranteId).stream()
-                .filter(m -> m.getId().equals(request.motivoId()))
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Motivo de merma no válido"));
+        MotivoMerma motivo = motivoDisponible(request.motivoId(), empleado);
 
         return registrar(insumo, request.cantidad(), motivo, empleado);
+    }
+
+    /** HU-17 y HU-18: el motivo elegido, si es global o del restaurante del empleado; si no, 400. */
+    @Transactional(readOnly = true)
+    public MotivoMerma motivoDisponible(Long motivoId, Empleado empleado) {
+        if (motivoId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El motivo es obligatorio");
+        }
+        return motivoRepository.disponibles(empleado.getRestaurante().getId()).stream()
+                .filter(m -> m.getId().equals(motivoId))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Motivo de merma no válido"));
     }
 
     /** Base para la HU-17 y la HU-18: el insumo y el motivo ya vienen validados por quien llama. */
