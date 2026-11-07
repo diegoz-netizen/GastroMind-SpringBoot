@@ -193,7 +193,9 @@ CREATE TABLE conteo_ciclico (
     empleado_id                 BIGINT NOT NULL REFERENCES empleado(id),   -- creado_por: Almacenero
     ingrediente_id              BIGINT NOT NULL REFERENCES ingrediente(id),
     cantidad_fisica_contada     DECIMAL(10,3) NOT NULL,
-    fecha_registro              TIMESTAMP NOT NULL DEFAULT NOW()
+    stock_sistema               DECIMAL(10,3),   -- HU-30: el stock del sistema al contar (migración 009)
+    fecha_registro              TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_conteo_no_negativo CHECK (cantidad_fisica_contada >= 0)
 );
 
 -- Movimientos de inventario (Sprint 3, migración 005): cada cambio de stock deja una fila con la cantidad
