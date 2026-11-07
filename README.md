@@ -65,6 +65,12 @@ Spring y Django responden todos los errores igual (`GlobalExceptionHandler` aqu�
 
 `error` es uno de: `VALIDACION` (400, con `campos`) · `SOLICITUD_INVALIDA` (400) · `NO_AUTENTICADO` (401) · `SIN_PERMISO` (403) · `NO_ENCONTRADO` (404) · `METODO_NO_PERMITIDO` (405) · `CONFLICTO` (409) · `DEMASIADAS_SOLICITUDES` (429, límite de `/api/auth/recuperar`) · `ERROR_INTERNO` (500, sin detalles internos). Las pantallas muestran `mensaje` y, en los de validación, cada texto de `campos` debajo de su campo.
 
+## Reportes y conteo físico (Sprint 4)
+
+- **Web `/reportes`**, solo para el administrador (botón *Reportes* en el inicio). Tiene una pestaña por HU: Panel (HU-23), Merma (HU-19), Teórico vs. real (HU-20), Sugerencia de compra (HU-21), Proveedores (HU-22) y Exportar (HU-24). Las que aún no están muestran *Pendiente*. Los números los calcula Django (`/api/catalogo/reportes/...`) y todas usan el mismo filtro de periodo. Cada pestaña es su propio archivo en `web-react/src/components/reportes/`.
+- **Conteo físico (HU-30), para la app del almacenero:** `POST /api/conteos` con `{ingredienteId, cantidad}` (`ALMACENERO` o `ADMINISTRADOR`; contar 0 vale, negativo no). Guarda lo contado junto con el stock que tenía el sistema en ese momento y **no cambia el stock**: la diferencia la suma el reporte teórico vs. real (HU-20). `GET /api/conteos?ingredienteId=` devuelve los últimos 20. Un insumo de otro restaurante da 404.
+- **Migración `009`** ([`docs/migraciones/009_conteo_stock_sistema.sql`](docs/migraciones/009_conteo_stock_sistema.sql)): una BD ya creada la necesita, o Spring no arranca. Una BD nueva ya la trae en `script_database.sql`. Se puede correr dos veces sin error.
+
 ## Flujo de trabajo
 
 Una rama por tarea (`feature/HU-xx-...`), Pull Request a `main` con 1 aprobación de otro integrante y merge con *Create a merge commit*. `main` está protegida en los tres repos.
