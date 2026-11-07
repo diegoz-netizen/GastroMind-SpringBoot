@@ -5,6 +5,8 @@ import { mensajeDeReporte, pedirReporte, periodoDelMes } from '../../config/repo
 // "0.400" → "0,400": la API manda las cantidades como texto
 const cantidad = (valor) => Number(valor).toLocaleString('es-PE', { minimumFractionDigits: 3 });
 const conSigno = (valor) => (Number(valor) > 0 ? '+' : '') + cantidad(valor);
+// "425.0" → "425,0": con coma, igual que las cantidades
+const porcentaje = (valor) => Number(valor).toLocaleString('es-PE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 // HU-20 (CA-20): lo que debió salir según las recetas contra lo que salió del almacén
 function ConsumoReporte({ token }) {
@@ -57,7 +59,7 @@ function ConsumoReporte({ token }) {
                 <td style={styles.tdNum}>{cantidad(fila.real)}</td>
                 <td style={styles.tdNum}>{conSigno(fila.diferencia)}</td>
                 <td style={styles.tdNum}>
-                  {fila.porcentaje === null ? '—' : `${Number(fila.porcentaje) > 0 ? '+' : ''}${fila.porcentaje} %`}
+                  {fila.porcentaje === null ? '—' : `${Number(fila.porcentaje) > 0 ? '+' : ''}${porcentaje(fila.porcentaje)} %`}
                   {fila.resaltar && <span style={styles.marca}>Revisar</span>}
                 </td>
               </tr>

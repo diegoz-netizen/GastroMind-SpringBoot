@@ -85,7 +85,7 @@ function Empleados() {
               Registrar empleado
             </button>
             <button onClick={cerrarSesion} style={styles.logoutButton}>
-              Cerrar sesion
+              Cerrar sesión
             </button>
           </div>
         </div>
