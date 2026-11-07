@@ -9,6 +9,7 @@ import com.gastromind.backendspring.repository.IngredienteRepository;
 import com.gastromind.backendspring.repository.MovimientoInventarioRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,8 @@ import java.util.Objects;
  * Para el consumo y las mermas, quien llama debe pasar el insumo de su propio origen (el insumo de la receta
  * de ese platillo, el de esa merma); cuando existan sus entidades, conviene una sobrecarga como la del ingreso.
  * El restaurante sale del empleado que hace la operación, nunca del cliente.
+ * HU-16: si una salida deja el insumo en su stock mínimo (y antes estaba por encima), publica AlertaStockMinimo;
+ * el correo sale después del commit (AlertaService).
  */
 @Service
 public class InventarioService {
@@ -43,13 +46,16 @@ public class InventarioService {
     private final IngredienteRepository ingredienteRepository;
     private final MovimientoInventarioRepository movimientoRepository;
     private final EntityManager entityManager;
+    private final ApplicationEventPublisher eventos;
 
     public InventarioService(IngredienteRepository ingredienteRepository,
                              MovimientoInventarioRepository movimientoRepository,
-                             EntityManager entityManager) {
+                             EntityManager entityManager,
+                             ApplicationEventPublisher eventos) {
         this.ingredienteRepository = ingredienteRepository;
         this.movimientoRepository = movimientoRepository;
         this.entityManager = entityManager;
+        this.eventos = eventos;
     }
 
     /** HU-14: una compra recibida suma su cantidad al stock. */
@@ -115,7 +121,13 @@ public class InventarioService {
                     "El stock resultante supera el máximo permitido (9 999 999,999)");
         }
 
+        BigDecimal anterior = insumo.getStockActual();
         insumo.setStockActual(saldo);
+        // Solo al cruzar: si ya estaba en el mínimo o debajo, no se repite el aviso en cada platillo
+        if (anterior.compareTo(insumo.getStockMinimo()) > 0 && saldo.compareTo(insumo.getStockMinimo()) <= 0) {
+            eventos.publishEvent(new AlertaStockMinimo(restauranteId, insumo.getNombre(), insumo.getUnidadMedida(),
+                    saldo, insumo.getStockMinimo()));
+        }
         return movimientoRepository.save(MovimientoInventario.builder()
                 .ingrediente(insumo)
                 .tipo(tipo)
