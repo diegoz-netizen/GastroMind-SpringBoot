@@ -32,6 +32,12 @@ function Dashboard() {
           Carta
         </button>
 
+        {auth.rol === 'ADMINISTRADOR' && (
+          <button onClick={() => navigate('/reportes')} style={styles.primaryButton}>
+            Reportes
+          </button>
+        )}
+
         <button onClick={logout} style={styles.logoutButton}>
           Cerrar sesion
         </button>
