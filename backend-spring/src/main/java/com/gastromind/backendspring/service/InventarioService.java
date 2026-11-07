@@ -4,6 +4,7 @@ import com.gastromind.backendspring.entity.Empleado;
 import com.gastromind.backendspring.entity.Ingrediente;
 import com.gastromind.backendspring.entity.MovimientoInventario;
 import com.gastromind.backendspring.entity.RegistroIngresoProveedor;
+import com.gastromind.backendspring.entity.RegistroMerma;
 import com.gastromind.backendspring.entity.TipoMovimiento;
 import com.gastromind.backendspring.repository.IngredienteRepository;
 import com.gastromind.backendspring.repository.MovimientoInventarioRepository;
@@ -88,6 +89,14 @@ public class InventarioService {
     public MovimientoInventario registrarMerma(Long ingredienteId, BigDecimal cantidad,
                                                Long registroMermaId, Empleado empleado) {
         return registrar(ingredienteId, TipoMovimiento.MERMA, cantidad, registroMermaId, empleado);
+    }
+
+    /** HU-17 y HU-18: igual que el anterior, pero el insumo y la cantidad salen de la misma merma. */
+    @Transactional
+    public MovimientoInventario registrarMerma(RegistroMerma merma, Empleado empleado) {
+        Objects.requireNonNull(merma, "merma");
+        return registrar(merma.getIngrediente().getId(), TipoMovimiento.MERMA, merma.getCantidad(),
+                merma.getId(), empleado);
     }
 
     private MovimientoInventario registrar(Long ingredienteId, TipoMovimiento tipo, BigDecimal cantidad,
