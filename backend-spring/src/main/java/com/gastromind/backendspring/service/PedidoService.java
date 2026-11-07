@@ -2,6 +2,7 @@ package com.gastromind.backendspring.service;
 
 import com.gastromind.backendspring.dto.AgregarPlatillosRequest;
 import com.gastromind.backendspring.dto.CambioEstadoPlatilloRequest;
+import com.gastromind.backendspring.dto.CuentaResponse;
 import com.gastromind.backendspring.dto.PedidoRequest;
 import com.gastromind.backendspring.dto.PedidoResponse;
 import com.gastromind.backendspring.entity.Empleado;
@@ -181,6 +182,36 @@ public class PedidoService {
         }
         pedido.setEstado(estadoDelPedido(pedido.getDetalles(), pedido.getEstado()));
         return PedidoResponse.from(pedidoRepository.saveAndFlush(pedido));
+    }
+
+    /**
+     * HU-12 (CA-12): el mozo cierra la mesa. El pedido pasa a CERRADO, la mesa vuelve a LIBRE y se devuelve la cuenta
+     * con lo servido. Un pedido cerrado ya no acepta platillos ni cambios de estado.
+     * No se cierra con platillos sin servir (409, dice cuáles): se servirían sin cobrar o se perderían en cocina.
+     * Los anulados no cuentan, así que un pedido con todo anulado se cierra con total 0 y libera la mesa.
+     */
+    @Transactional
+    public CuentaResponse cerrar(Long pedidoId, Authentication authentication) {
+        Empleado empleado = empleadoActual.obtenerConRol(authentication, MOZO, ADMINISTRADOR);
+        Long restauranteId = empleado.getRestaurante().getId();
+
+        Pedido pedido = pedidoRepository.findWithLockByIdAndMesaRestauranteId(pedidoId, restauranteId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+        if (pedido.getEstado() == EstadoPedido.CERRADO) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El pedido ya está cerrado");
+        }
+        List<String> sinServir = pedido.getDetalles().stream()
+                .filter(d -> d.getEstado() != EstadoPlatillo.SERVIDO && d.getEstado() != EstadoPlatillo.ANULADO)
+                .map(d -> d.getProducto().getNombre() + " (" + d.getEstado() + ")")
+                .toList();
+        if (!sinServir.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Faltan servir o anular: " + String.join(", ", sinServir));
+        }
+
+        pedido.setEstado(EstadoPedido.CERRADO);
+        pedido.getMesa().setEstado(Mesa.LIBRE);
+        return CuentaResponse.from(pedidoRepository.saveAndFlush(pedido));
     }
 
     /**
