@@ -14,6 +14,15 @@ const leerCantidad = (texto) => {
   return limpio;
 };
 
+// Por qué no vale lo que se escribió, para decirlo en la fila
+const errorDeCantidad = (texto) => {
+  const limpio = String(texto).trim().replace(',', '.');
+  if (limpio === '') return 'Escribe la cantidad.';
+  if (Number.isNaN(Number(limpio))) return 'Debe ser un número.';
+  if (Number(limpio) < 0) return 'No puede ser negativa.';
+  return 'Admite hasta 3 decimales.';
+};
+
 // HU-21 (CA-21): qué comprar para los próximos días, con el periodo analizado y la cantidad ajustable
 function SugerenciaReporte({ token }) {
   const [parametros, setParametros] = useState({ dias: 7, semanas: 8 });
@@ -49,14 +58,16 @@ function SugerenciaReporte({ token }) {
   const ajustar = (fila, texto) => {
     setAjustes((a) => ({ ...a, [fila.id]: { ...a[fila.id], texto, error: '' } }));
     const valor = leerCantidad(texto);
+    // Mientras no haya una cantidad válida, no se muestra el proveedor de la anterior
     if (valor === null) {
-      setAjustes((a) => ({ ...a, [fila.id]: { ...a[fila.id], error: 'Cantidad no válida (hasta 3 decimales).' } }));
+      setAjustes((a) => ({ ...a, [fila.id]: { texto, proveedor: null, error: errorDeCantidad(texto) } }));
       return;
     }
     if (Number(valor) === 0) {
       setAjustes((a) => ({ ...a, [fila.id]: { texto, proveedor: null, error: '' } }));
       return;
     }
+    setAjustes((a) => ({ ...a, [fila.id]: { texto, proveedor: null, buscando: true, error: '' } }));
     pedirReporte('proveedores/', token, { insumo: fila.id, cantidad: valor })
       .then((respuesta) => {
         setAjustes((a) =>
@@ -77,6 +88,7 @@ function SugerenciaReporte({ token }) {
       ajustada: ajuste !== undefined,
       proveedorFinal: ajuste && 'proveedor' in ajuste ? ajuste.proveedor : fila.proveedor,
       errorAjuste: ajuste?.error,
+      buscando: ajuste?.buscando,
     };
   });
   const aComprar = filas.filter((f) => (f.ajustada ? Number(leerCantidad(f.texto) ?? 0) : Number(f.comprar)) > 0);
@@ -152,7 +164,15 @@ function SugerenciaReporte({ token }) {
                       </div>
                     </>
                   ) : (
-                    <span style={styles.unidad}>{Number(fila.comprar) > 0 || fila.ajustada ? 'Sin precio registrado' : '—'}</span>
+                    <span style={styles.unidad}>
+                      {fila.buscando
+                        ? 'Buscando…'
+                        : fila.errorAjuste || (fila.ajustada && Number(leerCantidad(fila.texto) ?? 0) === 0)
+                          ? '—'
+                          : Number(fila.comprar) > 0 || fila.ajustada
+                            ? 'Sin precio registrado'
+                            : '—'}
+                    </span>
                   )}
                 </td>
               </tr>
