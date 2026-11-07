@@ -197,7 +197,7 @@ function Insumos() {
               Volver
             </button>
             <button onClick={cerrarSesion} style={styles.logoutButton}>
-              Cerrar sesion
+              Cerrar sesión
             </button>
           </div>
         </div>
@@ -241,7 +241,7 @@ function Insumos() {
                 Tipo de control
                 <select name="tipo_control" value={form.tipo_control} onChange={cambiar} style={styles.input}>
                   <option value="RECETA">RECETA (se descuenta por receta)</option>
-                  <option value="LIBRE">LIBRE (dotacion fija)</option>
+                  <option value="LIBRE">LIBRE (dotación fija)</option>
                 </select>
                 {errorDe('tipo_control')}
               </label>
@@ -281,7 +281,7 @@ function Insumos() {
                 <select name="tipo_control" value={clasificando.tipo_control} onChange={cambiarClasificacion}
                   style={styles.input}>
                   <option value="RECETA">RECETA (se descuenta por receta)</option>
-                  <option value="LIBRE">LIBRE (dotacion fija)</option>
+                  <option value="LIBRE">LIBRE (dotación fija)</option>
                 </select>
                 {erroresClasificar.tipo_control && (
                   <span style={styles.fieldError}>{erroresClasificar.tipo_control}</span>
