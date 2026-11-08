@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import BotonExcel from './BotonExcel';
 import FiltroPeriodo from './FiltroPeriodo';
 import { mensajeDeReporte, pedirReporte, periodoDelMes } from '../../config/reportes';
 
@@ -31,7 +32,9 @@ function ConsumoReporte({ token }) {
 
   return (
     <div>
-      <FiltroPeriodo periodo={periodo} onCambiar={setPeriodo} />
+      <FiltroPeriodo periodo={periodo} onCambiar={setPeriodo}>
+        <BotonExcel token={token} tipo="consumo" params={periodo} />
+      </FiltroPeriodo>
       <p style={styles.ayuda}>
         Teórico: platillos servidos × su receta. Real: lo que salió del almacén (consumo y merma). Se resaltan las
         diferencias mayores a {datos?.umbral ?? 5} %.

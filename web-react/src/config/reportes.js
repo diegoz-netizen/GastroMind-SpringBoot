@@ -30,3 +30,33 @@ export const mensajeDeReporte = (err) => {
   const primerCampo = campos && Object.values(campos)[0];
   return primerCampo || mensaje || 'No se pudo cargar el reporte.';
 };
+
+// HU-24: baja el Excel de un reporte con los mismos filtros que la pantalla (tipo: merma, consumo o inventario)
+export const descargarExcel = async (token, tipo, params = {}) => {
+  try {
+    const respuesta = await axios.get(`${REPORTES_URL}/exportar/`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { tipo, ...params },
+      responseType: 'blob',
+    });
+    const nombre = tipo === 'inventario'
+      ? `gastromind_inventario_${hoyEnPeru()}.xlsx`
+      : `gastromind_${tipo === 'consumo' ? 'teorico_vs_real' : tipo}_${params.desde}_${params.hasta}.xlsx`;
+    const enlace = document.createElement('a');
+    enlace.href = URL.createObjectURL(respuesta.data);
+    enlace.download = nombre;
+    enlace.click();
+    // Se libera después: si se libera en el mismo instante, algunos navegadores cortan la descarga
+    setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
+  } catch (err) {
+    // Con responseType blob, el error {mensaje, campos} también llega como blob: se lee como JSON
+    if (err.response?.data instanceof Blob) {
+      try {
+        err.response.data = JSON.parse(await err.response.data.text());
+      } catch {
+        err.response.data = {};
+      }
+    }
+    throw err;
+  }
+};
