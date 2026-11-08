@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import BotonExcel from './BotonExcel';
 import FiltroPeriodo from './FiltroPeriodo';
 import { DJANGO_URL } from '../../config/api';
 import { mensajeDeReporte, pedirReporte, periodoDelMes } from '../../config/reportes';
@@ -51,6 +52,10 @@ function MermaReporte({ token }) {
   }, [token, periodo, filtro]);
 
   const cambiar = (e) => setFiltro({ ...filtro, [e.target.name]: e.target.value });
+  // HU-24: el Excel lleva los mismos filtros que se ven
+  const filtrosExcel = { ...periodo };
+  if (filtro.insumo) filtrosExcel.insumo = filtro.insumo;
+  if (filtro.motivo) filtrosExcel.motivo = filtro.motivo;
 
   return (
     <div>
@@ -77,6 +82,7 @@ function MermaReporte({ token }) {
             ))}
           </select>
         </label>
+        <BotonExcel token={token} tipo="merma" params={filtrosExcel} />
       </FiltroPeriodo>
       <p style={styles.ayuda}>
         Merma sobre el consumo total: lo que se perdió frente a todo lo que salió del almacén (consumo y merma). El
