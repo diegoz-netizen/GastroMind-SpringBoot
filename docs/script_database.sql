@@ -108,6 +108,9 @@ CREATE TABLE mesa (
     numero          INT NOT NULL,
     estado          VARCHAR(20) NOT NULL DEFAULT 'LIBRE'
         CHECK (estado IN ('LIBRE', 'OCUPADA', 'CERRADA')),
+    capacidad       INT NOT NULL DEFAULT 4
+        CONSTRAINT chk_mesa_capacidad CHECK (capacidad BETWEEN 1 AND 30),   -- HU-26: personas que entran
+    zona            VARCHAR(30) NOT NULL DEFAULT 'Salón',                     -- HU-26: Salón, Terraza...
     UNIQUE (restaurante_id, numero)
 );
 

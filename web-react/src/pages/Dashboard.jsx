@@ -33,6 +33,12 @@ function Dashboard() {
         </button>
 
         {auth.rol === 'ADMINISTRADOR' && (
+          <button onClick={() => navigate('/mesas')} style={styles.primaryButton}>
+            Mesas
+          </button>
+        )}
+
+        {auth.rol === 'ADMINISTRADOR' && (
           <button onClick={() => navigate('/reportes')} style={styles.primaryButton}>
             Reportes
           </button>
