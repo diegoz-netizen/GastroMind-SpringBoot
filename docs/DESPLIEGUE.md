@@ -104,13 +104,14 @@ El APK de la última versión está en los [Releases de GastroMind-Kotlin](https
 Para un celular o tablet reales, en la misma red wifi que la PC:
 
 1. Averiguar la IP de la PC (`ip a` en Linux, `ipconfig` en Windows).
-2. Compilar la app con esa IP:
+2. Agregar esa IP a `DJANGO_ALLOWED_HOSTS` en el `.env` (si no, Django responde `400` al Kardex) y recrear Django: `docker compose up -d`.
+3. Compilar la app con esa IP:
    ```bash
    cd GastroMind-Kotlin
    ./gradlew assembleDebug -Pgastromind.apiUrl=http://<IP de la PC>:8080/ -Pgastromind.djangoUrl=http://<IP de la PC>:8000/
    ```
-3. Instalar `app/build/outputs/apk/debug/app-debug.apk` (permitir *instalar apps de origen desconocido*).
-4. Si el firewall de la PC bloquea, abrir los puertos 8080 y 8000.
+4. Instalar `app/build/outputs/apk/debug/app-debug.apk` (permitir *instalar apps de origen desconocido*).
+5. Si el firewall de la PC bloquea, abrir los puertos 8080 y 8000.
 
 ## 8. Operación
 
