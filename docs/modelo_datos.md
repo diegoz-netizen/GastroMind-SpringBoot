@@ -28,6 +28,8 @@ PostgreSQL 16, **una sola BD** para Spring y Django. Todas las tablas cuelgan de
 
 **Kardex (Sprint 3, migración `005`):** `movimiento_inventario` guarda cada cambio de stock con la cantidad (+ entra, − sale) y el saldo que quedó. La escribe solo `InventarioService` de Spring, en la misma transacción que `ingrediente.stock_actual` y con la fila del insumo bloqueada, cuando se sirve un platillo (HU-13), entra una compra (HU-14) o se registra una merma (HU-17 y HU-18). Django la lee para el kardex (HU-15). El stock y las cantidades de inventario van con 3 decimales, como la receta.
 
+**Columnas del Sprint 4 (migraciones):** `007` agrega `mesa.capacidad` y `mesa.zona` (HU-26) · `008` agrega `proveedor_insumo.flete` (HU-22) · `009` agrega `conteo_ciclico.stock_sistema`, el stock que tenía el sistema al contar (HU-30). La `006` no se usó.
+
 ## Diagrama entidad-relación
 
 ```mermaid
@@ -136,6 +138,8 @@ erDiagram
     bigint id PK
     bigint restaurante_id FK
     int numero
+    int capacidad
+    varchar zona
     varchar estado
   }
   pedido {
@@ -164,6 +168,7 @@ erDiagram
     bigint ingrediente_id FK
     decimal precio_unitario
     int tiempo_entrega_dias
+    decimal flete
   }
   motivo_merma {
     bigint id PK
@@ -195,6 +200,7 @@ erDiagram
     bigint empleado_id FK
     bigint ingrediente_id FK
     decimal cantidad_fisica_contada
+    decimal stock_sistema
     timestamp fecha_registro
   }
   movimiento_inventario {
