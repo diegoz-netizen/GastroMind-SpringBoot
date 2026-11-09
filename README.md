@@ -55,6 +55,20 @@ flowchart LR
 - **Web:** ver [`web-react/README.md`](web-react/README.md).
 - **Ensayo de la demo:** `bash docs/ensayo_demo.sh`.
 
+## Despliegue
+
+Todo el sistema (PostgreSQL, Spring, Django y la web) se levanta con Docker, sin instalar nada más:
+
+```bash
+git clone https://github.com/diegoz-netizen/GastroMind-SpringBoot.git
+git clone https://github.com/diegoz-netizen/GastroMind-Django.git   # al lado, en la misma carpeta
+cd GastroMind-SpringBoot
+cp .env.example .env        # completar DB_PASSWORD, JWT_SECRET y DJANGO_SECRET_KEY
+docker compose up --build -d
+```
+
+Web en <http://localhost:5173> · Spring en `:8080` · Django en `:8000`. La base se crea sola con `docs/script_database.sql` y `docs/seed_demo.sql`. La guía completa (variables, cómo comprobarlo, la app móvil, operación y problemas comunes) está en [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md).
+
 ## Alertas por correo (HU-16)
 
 Las manda **Spring** al administrador y a los almaceneros **activos** del restaurante, con la misma cuenta SMTP que el correo de bienvenida (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`).
