@@ -34,7 +34,7 @@ gantt
   Base de pedidos y HU-13 Descuento al servir (Victor)      :done, s3d, 2026-10-30, 2026-11-03
   HU-14 Compras y HU-15 Kardex (Victor)                     :done, s3e, 2026-10-30, 2026-11-03
   HU-10 KDS y HU-11 Estado del platillo (Diego)             :done, s3f, 2026-10-30, 2026-11-03
-  HU-16 Alertas: web y backend (Victor)                     :done, s3g, 2026-10-30, 2026-11-03
+  HU-16 Alertas, web y backend (Victor)                     :done, s3g, 2026-10-30, 2026-11-03
   HU-09 Tomar pedido, HU-12 Cerrar mesa y correo HU-16 (Victor) :done, s3h, 2026-11-03, 2026-11-07
   Integración                               :done, crit, i3, 2026-11-07, 1d
   Review 3                                  :milestone, r3, 2026-11-08, 0d
