@@ -96,6 +96,25 @@ docker compose logs -f spring
    ```
    Debe devolver la lista de insumos del restaurante. Sin el token, Django responde `401`. Si responde `401` con un token recién emitido, `JWT_SECRET` no es el mismo en los dos servicios.
 4. **Web:** abrir <http://localhost:5173>, entrar con el administrador de demo y ver Insumos, Carta y Reportes.
+5. **Ensayo completo por HTTP:** con todo arriba y la base recién cargada, correr
+
+   ```bash
+   bash docs/ensayo_demo.sh
+   ```
+
+   Recorre los Sprints 1 a 4 en 12 pasos (64 comprobaciones): personal y aislamiento entre sedes, insumos y carta con costo, mesas, un pedido de punta a punta (mozo → cocina → servido con descuento de stock → anulación con merma → cuenta y mesa libre), almacén (compra, kardex, merma, conteo) y reportes con la exportación a Excel. Debe terminar en `0 fallos`. Deja datos nuevos en la base: antes de presentar, `docker compose down -v` y `docker compose up -d` para volver al seed.
+
+### Usuarios de demo
+
+| Rol | Correo | Dónde entra |
+|---|---|---|
+| Administrador | `admin.central@gastromind.demo`, `admin.norte@gastromind.demo` | Web |
+| Almacenero | `almacen.central@gastromind.demo` | Web y app |
+| Mozo | `mozo.central@gastromind.demo`, `mozo.norte@gastromind.demo` | App |
+| Cocina | `cocina.central@gastromind.demo`, `cocina.norte@gastromind.demo` | App |
+| Inactivo | `mozo.inactivo@gastromind.demo` (el login lo rechaza) | — |
+
+La clave es la del encabezado de [`seed_demo.sql`](seed_demo.sql) y, en la app, el PIN de 4 dígitos que indica el mismo archivo. Son datos solo para la demo local.
 
 ## 7. App móvil
 
