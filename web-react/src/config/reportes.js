@@ -1,62 +1,70 @@
 import axios from 'axios';
-import { DJANGO_URL } from './api';
+import { DJANGO_URL, SPRING_URL } from './api';
 
-// Sprint 4: los reportes del gerente los calcula Django (HU-19 a HU-24), solo para el ADMINISTRADOR
-export const REPORTES_URL = `${DJANGO_URL}/api/catalogo/reportes`;
+export const CATALOGO = `${DJANGO_URL}/api/catalogo`;
+export const API_SPRING = `${SPRING_URL}/api`;
+export const conToken = (token) => ({ headers: { Authorization: `Bearer ${token}` } });
 
-// "2026-11-07" en hora de Perú, sin pasar por UTC
+const soles = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const solesEnteros = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 0 });
+const numero = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 3 });
+
+export const enSoles = (valor) => `S/ ${soles.format(valor ?? 0)}`;
+export const enSolesEnteros = (valor) => `S/ ${solesEnteros.format(valor ?? 0)}`;
+export const cantidadDe = (valor) => numero.format(valor ?? 0);
+export const conSigno = (valor) => `${valor > 0 ? '+' : ''}${numero.format(valor)}`;
+
+// "MAL_MANEJO" → "Mal manejo"
+export const nombreMotivo = (nombre) => {
+  const texto = nombre.replaceAll('_', ' ').toLowerCase();
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+};
+
+const iso = (fecha) => {
+  const local = new Date(fecha.getTime() - fecha.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+};
+
+// Últimos N días, sin contar hoy: el día en curso todavía no está completo
+export const ultimosDias = (dias) => {
+  const hasta = new Date();
+  hasta.setDate(hasta.getDate() - 1);
+  const desde = new Date(hasta);
+  desde.setDate(desde.getDate() - (dias - 1));
+  return { desde: iso(desde), hasta: iso(hasta) };
+};
+
+// "2026-11-10" en hora de Perú; del 1 del mes a hoy, como el periodo por defecto de la API
 export const hoyEnPeru = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
-
-// El periodo por defecto, igual que la API: del 1 del mes en curso a hoy
 export const periodoDelMes = () => {
   const hoy = hoyEnPeru();
   return { desde: `${hoy.slice(0, 8)}01`, hasta: hoy };
 };
+// dias = 0 → el mes en curso
+export const periodo = (dias) => (dias === 0 ? periodoDelMes() : ultimosDias(dias));
 
-// GET a un reporte con el token del login de Spring; params: { desde, hasta, ... }
-export const pedirReporte = async (ruta, token, params = {}) => {
-  const respuesta = await axios.get(`${REPORTES_URL}/${ruta}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    params,
+// null → "—" (un platillo sin receta no tiene % de costo)
+export const enPorcentaje = (valor) => (valor === null || valor === undefined ? '—' : `${valor} %`);
+
+export const fechaCorta =(texto) => texto.split('-').reverse().join('/');
+
+export const mensajeError = (err, porDefecto = 'No se pudo completar la acción.') => {
+  if (!err.response) return 'No se pudo conectar con el servidor.';
+  const { data } = err.response;
+  const campo = data?.campos && Object.values(data.campos)[0];
+  return campo || data?.mensaje || porDefecto;
+};
+
+// HU-24: pide el Excel con el token y lo entrega como descarga
+export const descargarExcel = async (token, parametros) => {
+  const response = await axios.get(`${CATALOGO}/reportes/exportar/`, {
+    ...conToken(token),
+    params: parametros,
+    responseType: 'blob',
   });
-  return respuesta.data;
-};
-
-// Mismo formato de error que el resto (HL-014): mensaje y, si lo hay, el primer campo
-export const mensajeDeReporte = (err) => {
-  if (!err.response) return `No se pudo conectar con Django (${DJANGO_URL}).`;
-  if (err.response.status === 403) return 'Solo el administrador puede ver los reportes.';
-  const { mensaje, campos } = err.response.data ?? {};
-  const primerCampo = campos && Object.values(campos)[0];
-  return primerCampo || mensaje || 'No se pudo cargar el reporte.';
-};
-
-// HU-24: baja el Excel de un reporte con los mismos filtros que la pantalla (tipo: merma, consumo o inventario)
-export const descargarExcel = async (token, tipo, params = {}) => {
-  try {
-    const respuesta = await axios.get(`${REPORTES_URL}/exportar/`, {
-      headers: { Authorization: `Bearer ${token}` },
-      params: { tipo, ...params },
-      responseType: 'blob',
-    });
-    const nombre = tipo === 'inventario'
-      ? `gastromind_inventario_${hoyEnPeru()}.xlsx`
-      : `gastromind_${tipo === 'consumo' ? 'teorico_vs_real' : tipo}_${params.desde}_${params.hasta}.xlsx`;
-    const enlace = document.createElement('a');
-    enlace.href = URL.createObjectURL(respuesta.data);
-    enlace.download = nombre;
-    enlace.click();
-    // Se libera después: si se libera en el mismo instante, algunos navegadores cortan la descarga
-    setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
-  } catch (err) {
-    // Con responseType blob, el error {mensaje, campos} también llega como blob: se lee como JSON
-    if (err.response?.data instanceof Blob) {
-      try {
-        err.response.data = JSON.parse(await err.response.data.text());
-      } catch {
-        err.response.data = {};
-      }
-    }
-    throw err;
-  }
+  const enlace = document.createElement('a');
+  enlace.href = URL.createObjectURL(response.data);
+  enlace.download = `gastromind_${parametros.tipo}_${parametros.desde ?? ''}_${parametros.hasta ?? ''}.xlsx`;
+  enlace.click();
+  URL.revokeObjectURL(enlace.href);
 };

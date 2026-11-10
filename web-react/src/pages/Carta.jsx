@@ -180,12 +180,6 @@ function Carta() {
             </p>
           </div>
           <div style={styles.headerButtons}>
-            <button onClick={() => navigate('/dashboard')} style={styles.secondaryButton}>
-              Volver
-            </button>
-            <button onClick={cerrarSesion} style={styles.logoutButton}>
-              Cerrar sesión
-            </button>
           </div>
         </div>
 
@@ -338,7 +332,7 @@ function Carta() {
 const styles = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#F3F4F1',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     padding: '40px 20px',
   },
@@ -365,7 +359,7 @@ const styles = {
   title: {
     margin: '0 0 8px 0',
     fontSize: '24px',
-    color: '#1a73e8',
+    color: '#1D5B47',
   },
   subtitle: {
     margin: 0,
@@ -525,7 +519,7 @@ const styles = {
     padding: '10px 24px',
     fontSize: '14px',
     fontWeight: '500',
-    backgroundColor: '#1a73e8',
+    backgroundColor: '#1D5B47',
     color: '#ffffff',
     border: 'none',
     borderRadius: '4px',
@@ -535,8 +529,8 @@ const styles = {
     padding: '8px 14px',
     fontSize: '14px',
     backgroundColor: '#ffffff',
-    color: '#1a73e8',
-    border: '1px solid #1a73e8',
+    color: '#1D5B47',
+    border: '1px solid #1D5B47',
     borderRadius: '4px',
     cursor: 'pointer',
   },
@@ -544,7 +538,7 @@ const styles = {
     padding: '4px 8px',
     fontSize: '13px',
     backgroundColor: 'transparent',
-    color: '#1a73e8',
+    color: '#1D5B47',
     border: 'none',
     cursor: 'pointer',
   },

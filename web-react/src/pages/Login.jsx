@@ -116,7 +116,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#F3F4F1',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   card: {
@@ -130,7 +130,7 @@ const styles = {
   title: {
     margin: '0 0 4px 0',
     fontSize: '28px',
-    color: '#1a73e8',
+    color: '#1D5B47',
     textAlign: 'center',
   },
   subtitle: {
@@ -175,7 +175,7 @@ const styles = {
     padding: '12px',
     fontSize: '15px',
     fontWeight: '600',
-    backgroundColor: '#1a73e8',
+    backgroundColor: '#1D5B47',
     color: '#ffffff',
     border: 'none',
     borderRadius: '4px',
@@ -191,7 +191,7 @@ const styles = {
     marginTop: '16px',
     textAlign: 'center',
     fontSize: '14px',
-    color: '#1a73e8',
+    color: '#1D5B47',
     textDecoration: 'none',
   },
 };

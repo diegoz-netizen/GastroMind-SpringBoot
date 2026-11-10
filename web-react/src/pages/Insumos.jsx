@@ -4,6 +4,7 @@ import axios from 'axios';
 import { DJANGO_URL } from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { ALERTAS_URL, cuandoVence, diaMes } from '../config/alertas';
+import ClasificarInsumo from '../components/ClasificarInsumo';
 
 // El catálogo va en Django; el token es el mismo que entrega el login de Spring
 const API_URL = `${DJANGO_URL}/api/catalogo/insumos/`;
@@ -33,16 +34,12 @@ function Insumos() {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [lotePorInsumo, setLotePorInsumo] = useState({});
-  const [clasificando, setClasificando] = useState(null);
-  const [erroresClasificar, setErroresClasificar] = useState({});
 
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
   const puedeRegistrar = ROLES_QUE_REGISTRAN.includes(auth.rol?.toUpperCase());
   // Review 2: el costo lo ven los mismos roles que registran (la API no se lo manda al resto)
   const veCosto = puedeRegistrar;
-  // HU-25: clasificar lo decide el gerente; la API responde 403 a los demás
-  const puedeClasificar = auth.rol?.toUpperCase() === 'ADMINISTRADOR';
 
   const mensajeDeError = (err) => {
     if (!err.response) {
@@ -129,51 +126,6 @@ function Insumos() {
     }
   };
 
-  const abrirClasificar = (insumo) => {
-    setError('');
-    setExito('');
-    setErroresClasificar({});
-    setClasificando({
-      id: insumo.id,
-      nombre: insumo.nombre,
-      unidad: insumo.unidad_medida,
-      tipo_control: insumo.tipo_control,
-      dotacion_cantidad: insumo.dotacion_cantidad ?? '',
-      dotacion_periodo: insumo.dotacion_periodo ?? 'SEMANAL',
-    });
-  };
-
-  const cambiarClasificacion = (e) => {
-    const { name, value } = e.target;
-    setClasificando((c) => ({ ...c, [name]: value }));
-    setErroresClasificar((errores) => ({ ...errores, [name]: undefined }));
-  };
-
-  const guardarClasificacion = async (e) => {
-    e.preventDefault();
-    setError('');
-    setErroresClasificar({});
-    setGuardando(true);
-    const { id, tipo_control, dotacion_cantidad, dotacion_periodo } = clasificando;
-    const datos = tipo_control === 'LIBRE' ? { tipo_control, dotacion_cantidad, dotacion_periodo } : { tipo_control };
-    try {
-      const response = await axios.patch(`${API_URL}${id}/clasificacion/`, datos, conToken(auth.token));
-      setInsumos((lista) => lista.map((i) => (i.id === id ? response.data : i)));
-      setExito(`"${response.data.nombre}" quedó como ${response.data.tipo_control}.`);
-      setClasificando(null);
-    } catch (err) {
-      if (err.response?.data?.error === 'VALIDACION') {
-        setErroresClasificar(err.response.data.campos || {});
-      } else if (err.response?.status === 403) {
-        setError('Solo un administrador puede clasificar insumos.');
-      } else {
-        setError(mensajeDeError(err));
-      }
-    } finally {
-      setGuardando(false);
-    }
-  };
-
   const cerrarSesion = () => {
     logout();
     navigate('/');
@@ -193,12 +145,6 @@ function Insumos() {
             </p>
           </div>
           <div style={styles.headerButtons}>
-            <button onClick={() => navigate('/dashboard')} style={styles.secondaryButton}>
-              Volver
-            </button>
-            <button onClick={cerrarSesion} style={styles.logoutButton}>
-              Cerrar sesión
-            </button>
           </div>
         </div>
 
@@ -241,7 +187,7 @@ function Insumos() {
                 Tipo de control
                 <select name="tipo_control" value={form.tipo_control} onChange={cambiar} style={styles.input}>
                   <option value="RECETA">RECETA (se descuenta por receta)</option>
-                  <option value="LIBRE">LIBRE (dotación fija)</option>
+                  <option value="LIBRE">LIBRE (dotacion fija)</option>
                 </select>
                 {errorDe('tipo_control')}
               </label>
@@ -269,57 +215,6 @@ function Insumos() {
               style={{ ...styles.primaryButton, ...(guardando ? styles.buttonDisabled : {}) }}>
               {guardando ? 'Guardando...' : 'Registrar'}
             </button>
-          </form>
-        )}
-
-        {clasificando && (
-          <form onSubmit={guardarClasificacion} style={styles.form} noValidate>
-            <h2 style={styles.formTitle}>Clasificar {clasificando.nombre}</h2>
-            <div style={styles.grid}>
-              <label style={styles.label}>
-                Tipo de control
-                <select name="tipo_control" value={clasificando.tipo_control} onChange={cambiarClasificacion}
-                  style={styles.input}>
-                  <option value="RECETA">RECETA (se descuenta por receta)</option>
-                  <option value="LIBRE">LIBRE (dotación fija)</option>
-                </select>
-                {erroresClasificar.tipo_control && (
-                  <span style={styles.fieldError}>{erroresClasificar.tipo_control}</span>
-                )}
-              </label>
-              {clasificando.tipo_control === 'LIBRE' && (
-                <>
-                  <label style={styles.label}>
-                    Dotacion ({clasificando.unidad}) *
-                    <input name="dotacion_cantidad" type="number" step="0.001" min="0.001"
-                      value={clasificando.dotacion_cantidad} onChange={cambiarClasificacion} style={styles.input} />
-                    {erroresClasificar.dotacion_cantidad && (
-                      <span style={styles.fieldError}>{erroresClasificar.dotacion_cantidad}</span>
-                    )}
-                  </label>
-                  <label style={styles.label}>
-                    Periodo *
-                    <select name="dotacion_periodo" value={clasificando.dotacion_periodo}
-                      onChange={cambiarClasificacion} style={styles.input}>
-                      <option value="SEMANAL">Semanal</option>
-                      <option value="MENSUAL">Mensual</option>
-                    </select>
-                    {erroresClasificar.dotacion_periodo && (
-                      <span style={styles.fieldError}>{erroresClasificar.dotacion_periodo}</span>
-                    )}
-                  </label>
-                </>
-              )}
-            </div>
-            <div style={styles.headerButtons}>
-              <button type="submit" disabled={guardando}
-                style={{ ...styles.primaryButton, ...(guardando ? styles.buttonDisabled : {}) }}>
-                {guardando ? 'Guardando...' : 'Guardar'}
-              </button>
-              <button type="button" onClick={() => setClasificando(null)} style={styles.secondaryButton}>
-                Cancelar
-              </button>
-            </div>
           </form>
         )}
 
@@ -351,18 +246,13 @@ function Insumos() {
                     {veCosto && <td style={styles.tdNum}>{insumo.costo_unitario}</td>}
                     <td style={styles.td}>
                       {insumo.tipo_control}
-                      {insumo.tipo_control === 'LIBRE' && insumo.dotacion_cantidad && (
-                        <div style={styles.dotacion}>
-                          {Number(insumo.dotacion_cantidad)} {insumo.unidad_medida} · {insumo.dotacion_periodo.toLowerCase()}
-                        </div>
-                      )}
-                      {puedeClasificar && (
-                        <div>
-                          <button type="button" onClick={() => abrirClasificar(insumo)} style={styles.enlace}
-                            aria-label={`Clasificar ${insumo.nombre}`}>
-                            Cambiar
-                          </button>
-                        </div>
+                      {insumo.tipo_control === 'LIBRE' && insumo.dotacion_cantidad && ` · ${Number(insumo.dotacion_cantidad)} ${insumo.unidad_medida}, ${insumo.dotacion_periodo?.toLowerCase()}`}
+                      {auth.rol?.toUpperCase() === 'ADMINISTRADOR' && (
+                        <ClasificarInsumo
+                          insumo={insumo}
+                          token={auth.token}
+                          onGuardado={(nuevo) => setInsumos((lista) => lista.map((i) => (i.id === nuevo.id ? nuevo : i)))}
+                        />
                       )}
                     </td>
                     <td style={styles.td}>
@@ -395,7 +285,7 @@ function Insumos() {
 const styles = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#F3F4F1',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     padding: '40px 20px',
   },
@@ -422,7 +312,7 @@ const styles = {
   title: {
     margin: '0 0 8px 0',
     fontSize: '24px',
-    color: '#1a73e8',
+    color: '#1D5B47',
   },
   subtitle: {
     margin: 0,
@@ -519,19 +409,6 @@ const styles = {
     textAlign: 'right',
     fontVariantNumeric: 'tabular-nums',
   },
-  dotacion: {
-    fontSize: '12px',
-    color: '#5f6368',
-    whiteSpace: 'nowrap',
-  },
-  enlace: {
-    padding: 0,
-    border: 'none',
-    background: 'none',
-    color: '#1a73e8',
-    fontSize: '12px',
-    cursor: 'pointer',
-  },
   badgeAlerta: {
     padding: '2px 8px',
     marginRight: '4px',
@@ -558,7 +435,7 @@ const styles = {
     padding: '10px 24px',
     fontSize: '14px',
     fontWeight: '500',
-    backgroundColor: '#1a73e8',
+    backgroundColor: '#1D5B47',
     color: '#ffffff',
     border: 'none',
     borderRadius: '4px',
@@ -568,8 +445,8 @@ const styles = {
     padding: '8px 14px',
     fontSize: '14px',
     backgroundColor: '#ffffff',
-    color: '#1a73e8',
-    border: '1px solid #1a73e8',
+    color: '#1D5B47',
+    border: '1px solid #1D5B47',
     borderRadius: '4px',
     cursor: 'pointer',
   },

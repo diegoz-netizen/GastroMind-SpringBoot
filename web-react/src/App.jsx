@@ -1,5 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import Layout from './components/Layout';
+import Reportes from './pages/Reportes';
+import Compras from './pages/Compras';
+import Mesas from './pages/Mesas';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Empleados from './pages/Empleados';
@@ -7,14 +11,12 @@ import RegistrarEmpleado from './pages/RegistrarEmpleado';
 import Insumos from './pages/Insumos';
 import Carta from './pages/Carta';
 import Receta from './pages/Receta';
-import Reportes from './pages/Reportes';
-import Mesas from './pages/Mesas';
 import OlvideContrasena from './pages/OlvideContrasena';
 import RestablecerContrasena from './pages/RestablecerContrasena';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated } = useAuth();
-  return isAuthenticated() ? children : <Navigate to="/" />;
+  return isAuthenticated() ? <Layout>{children}</Layout> : <Navigate to="/" />;
 }
 
 function AppRoutes() {
@@ -63,27 +65,14 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      <Route path="/reportes" element={<PrivateRoute><Reportes /></PrivateRoute>} />
+      <Route path="/compras" element={<PrivateRoute><Compras /></PrivateRoute>} />
+      <Route path="/mesas" element={<PrivateRoute><Mesas /></PrivateRoute>} />
       <Route
         path="/carta/:id/receta"
         element={
           <PrivateRoute>
             <Receta />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/mesas"
-        element={
-          <PrivateRoute>
-            <Mesas />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/reportes"
-        element={
-          <PrivateRoute>
-            <Reportes />
           </PrivateRoute>
         }
       />
