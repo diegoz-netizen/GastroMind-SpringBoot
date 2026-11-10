@@ -67,7 +67,6 @@ function AlertasDeHoy({ token }) {
 
 const styles = {
   card: {
-    marginTop: '24px',
     padding: '20px',
     borderRadius: '8px',
     border: '1px solid #dadce0',
@@ -76,7 +75,7 @@ const styles = {
   title: {
     margin: '0 0 12px 0',
     fontSize: '18px',
-    color: '#202124',
+    color: '#18201C',
   },
   empty: {
     margin: 0,
@@ -114,7 +113,7 @@ const styles = {
     margin: '0 0 4px 0',
     fontSize: '15px',
     fontWeight: '600',
-    color: '#202124',
+    color: '#18201C',
   },
   alertaDetalle: {
     margin: 0,

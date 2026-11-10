@@ -84,9 +84,6 @@ function Empleados() {
             <button onClick={() => navigate('/empleados/nuevo')} style={styles.registrarButton}>
               Registrar empleado
             </button>
-            <button onClick={cerrarSesion} style={styles.logoutButton}>
-              Cerrar sesión
-            </button>
           </div>
         </div>
 
@@ -148,7 +145,7 @@ function Empleados() {
 const styles = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#F3F4F1',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     padding: '40px 20px',
   },
@@ -175,16 +172,16 @@ const styles = {
   registrarButton: {
     padding: '8px 14px',
     fontSize: '14px',
-    backgroundColor: '#1a73e8',
+    backgroundColor: '#1D5B47',
     color: '#ffffff',
-    border: '1px solid #1a73e8',
+    border: '1px solid #1D5B47',
     borderRadius: '4px',
     cursor: 'pointer',
   },
   title: {
     margin: '0 0 8px 0',
     fontSize: '24px',
-    color: '#1a73e8',
+    color: '#1D5B47',
   },
   subtitle: {
     margin: 0,
@@ -248,9 +245,9 @@ const styles = {
   buttonActivar: {
     padding: '6px 12px',
     fontSize: '13px',
-    backgroundColor: '#1a73e8',
+    backgroundColor: '#1D5B47',
     color: '#ffffff',
-    border: '1px solid #1a73e8',
+    border: '1px solid #1D5B47',
     borderRadius: '4px',
     cursor: 'pointer',
   },
