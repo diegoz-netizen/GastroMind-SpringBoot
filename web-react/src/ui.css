@@ -210,3 +210,20 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
 .tarjeta.pin-caja { display: grid; gap: 4px; max-width: 880px; border-left: 4px solid var(--verde); }
 .pin-caja .pin { font-size: 30px; letter-spacing: 8px; color: var(--verde); }
 .campo input, .campo select { box-sizing: border-box; height: 38px; }
+/* Login y recuperación de contraseña: panel oscuro de marca + tarjeta clara */
+.ingreso { min-height: 100vh; display: grid; grid-template-columns: 1fr; background: var(--fondo); color: var(--tinta); font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif; }
+.ingreso-lado { display: none; }
+.ingreso-tarjeta { align-self: center; justify-self: center; width: calc(100% - 32px); max-width: 400px; box-sizing: border-box; margin: 32px 16px; padding: 32px; background: #fff; border: 1px solid #e3e6e1; border-radius: 14px; display: grid; gap: 14px; }
+.ingreso-titulo { font-size: 24px; font-weight: 800; letter-spacing: -.02em; margin: 0; }
+.ingreso-form { display: grid; gap: 14px; }
+.ingreso-form .campo { font-size: 13px; }
+.campo-etiqueta { font-weight: 600; color: var(--tinta-2); }
+.ingreso-enlace { justify-self: center; font-size: 14px; }
+.ingreso-logo { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 800; color: #fff; }
+.ingreso-lema { font-size: 30px; font-weight: 800; line-height: 1.2; letter-spacing: -.02em; color: #fff; margin: 0 0 12px; }
+.ingreso-nota { color: #a9b5ae; font-size: 14px; line-height: 1.5; margin: 0; }
+@media (max-width: 1023px) { .ingreso-tarjeta::before { content: 'GastroMind'; font-weight: 800; font-size: 20px; color: var(--verde); } }
+@media (min-width: 1024px) {
+  .ingreso { grid-template-columns: minmax(380px, 44%) 1fr; }
+  .ingreso-lado { display: flex; flex-direction: column; justify-content: space-between; gap: 32px; padding: 48px; background: var(--tinta); }
+}

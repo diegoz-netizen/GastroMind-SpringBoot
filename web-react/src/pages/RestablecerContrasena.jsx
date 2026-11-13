@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { LadoIngreso } from '../components/Marca';
 import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { SPRING_URL } from '../config/api';
-import { styles } from './recuperacionStyles';
 
 // HU-04: se llega desde el enlace del correo (/restablecer?token=...). El enlace caduca y es de un solo uso.
 // HU-01-b: el correo de bienvenida usa el mismo enlace con &bienvenida=1, para crear la primera contraseña.
@@ -58,11 +58,11 @@ function RestablecerContrasena() {
 
   if (!token) {
     return (
-      <div style={styles.container}>
-        <div style={styles.card}>
-          <h1 style={styles.title}>GastroMind</h1>
-          <p style={styles.error}>El enlace no es válido. Solicita uno nuevo.</p>
-          <Link to="/recuperar" style={styles.link}>
+      <div className="ingreso">
+      <LadoIngreso />
+        <div className="ingreso-tarjeta">
+          <p className="aviso error">El enlace no es válido. Solicita uno nuevo.</p>
+          <Link to="/recuperar" className="enlace ingreso-enlace">
             Pedir un enlace nuevo
           </Link>
         </div>
@@ -71,22 +71,22 @@ function RestablecerContrasena() {
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>GastroMind</h1>
-        <h2 style={styles.subtitle}>{bienvenida ? 'Bienvenido: crea tu contraseña' : 'Nueva contraseña'}</h2>
+    <div className="ingreso">
+      <LadoIngreso />
+      <div className="ingreso-tarjeta">
+        <h2 className="ingreso-titulo">{bienvenida ? 'Bienvenido: crea tu contraseña' : 'Nueva contraseña'}</h2>
 
         {mensaje ? (
           <>
-            <p style={styles.success}>{mensaje}</p>
-            <Link to="/" style={styles.link}>
+            <p className="aviso ok">{mensaje}</p>
+            <Link to="/" className="enlace ingreso-enlace">
               Ir a iniciar sesión
             </Link>
           </>
         ) : (
-          <form onSubmit={handleSubmit} style={styles.form}>
-            <div style={styles.field}>
-              <label htmlFor="nueva" style={styles.label}>
+          <form onSubmit={handleSubmit} className="ingreso-form">
+            <div className="campo">
+              <label htmlFor="nueva" className="campo-etiqueta">
                 Nueva contraseña
               </label>
               <input
@@ -94,16 +94,15 @@ function RestablecerContrasena() {
                 type="password"
                 value={nuevaContrasena}
                 onChange={(e) => setNuevaContrasena(e.target.value)}
-                style={styles.input}
                 autoComplete="new-password"
               />
               {erroresCampo.nuevaContrasena && (
-                <span style={styles.fieldError}>{erroresCampo.nuevaContrasena}</span>
+                <span className="error-campo">{erroresCampo.nuevaContrasena}</span>
               )}
             </div>
 
-            <div style={styles.field}>
-              <label htmlFor="confirmacion" style={styles.label}>
+            <div className="campo">
+              <label htmlFor="confirmacion" className="campo-etiqueta">
                 Repite la contraseña
               </label>
               <input
@@ -111,17 +110,16 @@ function RestablecerContrasena() {
                 type="password"
                 value={confirmacion}
                 onChange={(e) => setConfirmacion(e.target.value)}
-                style={styles.input}
                 autoComplete="new-password"
               />
             </div>
 
-            {error && <p style={styles.error}>{error}</p>}
+            {error && <p className="aviso error">{error}</p>}
 
             <button
               type="submit"
               disabled={loading}
-              style={{ ...styles.button, ...(loading ? styles.buttonDisabled : {}) }}
+            className="boton primario ancho"
             >
               {loading ? 'Guardando...' : 'Guardar contraseña'}
             </button>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../ui.css';
+import { Marca } from './Marca';
 
 // Módulos del prototipo; cada rol ve lo que puede usar
 const MODULOS = [
@@ -15,16 +16,6 @@ const MODULOS = [
 ];
 
 const ESCRITORIO = '(min-width: 1024px)';
-
-// El logo de la campana, el mismo en la barra del celular y en el menú lateral
-function Marca() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7FC4A8" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-      <path d="M4 11h16a8 8 0 0 1-16 0z" />
-      <path d="M8 7c0-1.5 1-2 1-3.5M12 7c0-1.5 1-2 1-3.5M16 7c0-1.5 1-2 1-3.5" />
-    </svg>
-  );
-}
 
 // En computadora el menú queda fijo a la izquierda, como el prototipo final.
 // En el celular es un cajón con el botón hamburguesa, para que la página use todo el ancho.
