@@ -150,3 +150,25 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
   .nav a { font-size: 14.5px; padding: 10px 12px; }
   .contenido { margin-left: 232px; }
 }
+
+/* ---------- Tablas y formularios de las pantallas de gestión (Insumos, Carta, Personal) ---------- */
+.tarjeta.sin-relleno { padding: 0; gap: 0; overflow: hidden; }
+.tabla-panel th { padding: 14px 14px 10px; background: #fff; }
+.tabla-panel td { padding: 12px 14px; }
+.tabla-panel tbody tr:hover td { background: #f7f8f5; }
+.tabla-panel tr.elegida td { background: #edf5f1; }
+.sub { display: block; color: var(--tinta-3); font-size: 12px; margin-top: 2px; }
+.sin-salto { white-space: nowrap; }
+.insignia { display: inline-block; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .3px; padding: 2px 6px; border-radius: 4px; }
+.insignia.verde { background: var(--verde-suave); color: #0e3327; }
+.insignia.lila { background: #ece9f8; color: #3b2f7a; }
+.insignia.gris { background: #eef0ec; color: var(--tinta-3); }
+.texto-rojo { color: var(--rojo); }
+.texto-ambar { color: #9a6410; }
+.fuerte { font-weight: 600; }
+.con-margen { padding: 18px 20px; }
+.error-campo { color: var(--rojo); font-size: 12px; }
+.ayuda { color: var(--tinta-3); font-size: 13px; line-height: 1.45; }
+.modal.modal-ancho { width: min(620px, 100%); }
+.rejilla-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.mono { font-family: var(--mono); white-space: nowrap; }

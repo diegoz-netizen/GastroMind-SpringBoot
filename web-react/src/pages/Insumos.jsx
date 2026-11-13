@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { DJANGO_URL } from '../config/api';
 import { useAuth } from '../context/AuthContext';
@@ -34,12 +33,13 @@ function Insumos() {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [lotePorInsumo, setLotePorInsumo] = useState({});
+  const [formAbierto, setFormAbierto] = useState(false);
 
-  const { auth, logout } = useAuth();
-  const navigate = useNavigate();
+  const { auth } = useAuth();
   const puedeRegistrar = ROLES_QUE_REGISTRAN.includes(auth.rol?.toUpperCase());
   // Review 2: el costo lo ven los mismos roles que registran (la API no se lo manda al resto)
   const veCosto = puedeRegistrar;
+  const esAdmin = auth.rol?.toUpperCase() === 'ADMINISTRADOR';
 
   const mensajeDeError = (err) => {
     if (!err.response) {
@@ -111,6 +111,7 @@ function Insumos() {
       // El insumo nace con stock 0: el stock entra con el ingreso de compras (HU-14), que deja su movimiento
       setExito(`Insumo "${response.data.nombre}" registrado con stock 0. El stock entra con el ingreso de compras.`);
       setForm(FORM_VACIO);
+      setFormAbierto(false);
     } catch (err) {
       // 400 de CA-05: Django devuelve {error: 'VALIDACION', mensaje, campos: {campo: mensaje}} (HL-014)
       if (err.response?.data?.error === 'VALIDACION') {
@@ -126,83 +127,68 @@ function Insumos() {
     }
   };
 
-  const cerrarSesion = () => {
-    logout();
-    navigate('/');
-  };
+  const errorDe = (campo) => erroresCampo[campo] && <span className="error-campo">{erroresCampo[campo]}</span>;
 
-  const errorDe = (campo) =>
-    erroresCampo[campo] && <span style={styles.fieldError}>{erroresCampo[campo]}</span>;
+  // HU-16: qué decir del lote que vence primero (la API los manda ordenados por fecha)
+  const vencimiento = (lote) =>
+    lote.vencido ? `Venció el ${diaMes(lote.fecha_vencimiento)}`
+      : lote.dias_restantes === 0 ? 'Vence hoy' : `Vence ${cuandoVence(lote)}`;
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <div>
-            <h1 style={styles.title}>Insumos del almacen</h1>
-            <p style={styles.subtitle}>
-              {auth.nombreCompleto} · {auth.rol}
-            </p>
-          </div>
-          <div style={styles.headerButtons}>
-          </div>
+    <div className="pagina">
+      <div className="cabecera">
+        <div>
+          <h1>Insumos</h1>
+          <p>Stock actual de la sede. RECETA se descuenta al servir; LIBRE se controla por dotación y conteo.</p>
         </div>
-
-        {error && <p style={styles.error}>{error}</p>}
-        {exito && <p style={styles.success}>{exito}</p>}
-
         {puedeRegistrar && (
-          <form onSubmit={registrar} style={styles.form} noValidate>
-            <h2 style={styles.formTitle}>Registrar insumo</h2>
-            <div style={styles.grid}>
-              <label style={styles.label}>
-                Nombre *
-                <input name="nombre" value={form.nombre} onChange={cambiar} style={styles.input} maxLength={150} />
+          <button type="button" className="boton primario" onClick={() => { setExito(''); setFormAbierto(true); }}>
+            Nuevo insumo
+          </button>
+        )}
+      </div>
+
+      {error && <div className="aviso error">{error}</div>}
+      {exito && <div className="aviso ok">{exito}</div>}
+
+      {formAbierto && (
+        <div className="modal-fondo">
+          <form className="modal modal-ancho" onSubmit={registrar} noValidate>
+            <h2>Nuevo insumo</h2>
+            <div className="rejilla-campos">
+              <label className="campo">Nombre *
+                <input name="nombre" value={form.nombre} onChange={cambiar} maxLength={150} />
                 {errorDe('nombre')}
               </label>
-              <label style={styles.label}>
-                Unidad de medida *
-                <select name="unidad_medida" value={form.unidad_medida} onChange={cambiar} style={styles.input}>
-                  {UNIDADES.map((u) => (
-                    <option key={u} value={u}>
-                      {u}
-                    </option>
-                  ))}
+              <label className="campo">Unidad de medida *
+                <select name="unidad_medida" value={form.unidad_medida} onChange={cambiar}>
+                  {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
                 {errorDe('unidad_medida')}
               </label>
-              <label style={styles.label}>
-                Costo unitario (S/) *
-                <input name="costo_unitario" type="number" step="0.01" min="0.01" value={form.costo_unitario}
-                  onChange={cambiar} style={styles.input} />
+              <label className="campo">Costo unitario (S/) *
+                <input name="costo_unitario" type="number" step="0.01" min="0.01" value={form.costo_unitario} onChange={cambiar} />
                 {errorDe('costo_unitario')}
               </label>
-              <label style={styles.label}>
-                Stock minimo *
-                <input name="stock_minimo" type="number" step="0.001" min="0.001" value={form.stock_minimo}
-                  onChange={cambiar} style={styles.input} />
+              <label className="campo">Stock mínimo *
+                <input name="stock_minimo" type="number" step="0.001" min="0.001" value={form.stock_minimo} onChange={cambiar} />
                 {errorDe('stock_minimo')}
               </label>
-              <label style={styles.label}>
-                Tipo de control
-                <select name="tipo_control" value={form.tipo_control} onChange={cambiar} style={styles.input}>
+              <label className="campo">Tipo de control
+                <select name="tipo_control" value={form.tipo_control} onChange={cambiar}>
                   <option value="RECETA">RECETA (se descuenta por receta)</option>
-                  <option value="LIBRE">LIBRE (dotacion fija)</option>
+                  <option value="LIBRE">LIBRE (dotación fija)</option>
                 </select>
                 {errorDe('tipo_control')}
               </label>
               {form.tipo_control === 'LIBRE' && (
                 <>
-                  <label style={styles.label}>
-                    Dotacion *
-                    <input name="dotacion_cantidad" type="number" step="0.001" min="0.001"
-                      value={form.dotacion_cantidad} onChange={cambiar} style={styles.input} />
+                  <label className="campo">Dotación *
+                    <input name="dotacion_cantidad" type="number" step="0.001" min="0.001" value={form.dotacion_cantidad} onChange={cambiar} />
                     {errorDe('dotacion_cantidad')}
                   </label>
-                  <label style={styles.label}>
-                    Periodo *
-                    <select name="dotacion_periodo" value={form.dotacion_periodo} onChange={cambiar}
-                      style={styles.input}>
+                  <label className="campo">Periodo *
+                    <select name="dotacion_periodo" value={form.dotacion_periodo} onChange={cambiar}>
                       <option value="SEMANAL">Semanal</option>
                       <option value="MENSUAL">Mensual</option>
                     </select>
@@ -211,258 +197,85 @@ function Insumos() {
                 </>
               )}
             </div>
-            <button type="submit" disabled={guardando}
-              style={{ ...styles.primaryButton, ...(guardando ? styles.buttonDisabled : {}) }}>
-              {guardando ? 'Guardando...' : 'Registrar'}
-            </button>
+            <p className="ayuda">El insumo nace con stock 0: el stock entra con el ingreso de compras.</p>
+            <div className="fila-acciones">
+              <button type="submit" className="boton primario" disabled={guardando}>{guardando ? 'Guardando...' : 'Registrar'}</button>
+              <button type="button" className="boton" onClick={() => setFormAbierto(false)}>Cancelar</button>
+            </div>
           </form>
-        )}
+        </div>
+      )}
 
+      <div className="tarjeta sin-relleno">
         {loading ? (
-          <p style={styles.detail}>Cargando insumos...</p>
-        ) : insumos.length === 0 && !error ? (
-          <p style={styles.detail}>No hay insumos registrados en tu restaurante.</p>
+          <p className="vacio con-margen">Cargando insumos...</p>
+        ) : insumos.length === 0 ? (
+          !error && <p className="vacio con-margen">No hay insumos registrados en tu restaurante.</p>
         ) : (
-          insumos.length > 0 && (
-            <table style={styles.table}>
+          <div className="tabla-caja">
+            <table className="tabla tabla-panel">
               <thead>
                 <tr>
-                  <th style={styles.th}>Nombre</th>
-                  <th style={styles.th}>Unidad</th>
-                  <th style={styles.thNum}>Stock actual</th>
-                  <th style={styles.thNum}>Stock minimo</th>
-                  {veCosto && <th style={styles.thNum}>Costo (S/)</th>}
-                  <th style={styles.th}>Control</th>
-                  <th style={styles.th}>Estado</th>
+                  <th>Insumo</th>
+                  <th>Tipo</th>
+                  {veCosto && <th className="num">Costo</th>}
+                  <th className="num">Stock</th>
+                  <th className="num">Mínimo</th>
+                  <th>Vence</th>
+                  <th>Estado</th>
                 </tr>
               </thead>
               <tbody>
-                {insumos.map((insumo) => (
-                  <tr key={insumo.id}>
-                    <td style={styles.td}>{insumo.nombre}</td>
-                    <td style={styles.td}>{insumo.unidad_medida}</td>
-                    <td style={styles.tdNum}>{insumo.stock_actual}</td>
-                    <td style={styles.tdNum}>{insumo.stock_minimo}</td>
-                    {veCosto && <td style={styles.tdNum}>{insumo.costo_unitario}</td>}
-                    <td style={styles.td}>
-                      {insumo.tipo_control}
-                      {insumo.tipo_control === 'LIBRE' && insumo.dotacion_cantidad && ` · ${Number(insumo.dotacion_cantidad)} ${insumo.unidad_medida}, ${insumo.dotacion_periodo?.toLowerCase()}`}
-                      {auth.rol?.toUpperCase() === 'ADMINISTRADOR' && (
-                        <ClasificarInsumo
-                          insumo={insumo}
-                          token={auth.token}
-                          onGuardado={(nuevo) => setInsumos((lista) => lista.map((i) => (i.id === nuevo.id ? nuevo : i)))}
-                        />
-                      )}
-                    </td>
-                    <td style={styles.td}>
-                      {insumo.bajo_stock_minimo && <span style={styles.badgeStock}>Bajo el mínimo</span>}
-                      {/* HU-16: el lote que vence primero (la API los manda ordenados por fecha) */}
-                      {lotePorInsumo[insumo.nombre] && (
-                        <span style={styles.badgeAlerta}>
-                          {lotePorInsumo[insumo.nombre].vencido
-                            ? `Venció el ${diaMes(lotePorInsumo[insumo.nombre].fecha_vencimiento)}`
-                            : lotePorInsumo[insumo.nombre].dias_restantes === 0
-                              ? 'Vence hoy'
-                              : `Vence ${cuandoVence(lotePorInsumo[insumo.nombre])}`}
-                        </span>
-                      )}
-                      {!insumo.bajo_stock_minimo && !lotePorInsumo[insumo.nombre] && (
-                        <span style={styles.estadoNormal}>Normal</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {insumos.map((insumo) => {
+                  const lote = lotePorInsumo[insumo.nombre];
+                  const unidad = insumo.unidad_medida;
+                  return (
+                    <tr key={insumo.id}>
+                      <td>
+                        {insumo.nombre}
+                        {insumo.tipo_control === 'LIBRE' && insumo.dotacion_cantidad && (
+                          <small className="sub">Dotación: {cifra(insumo.dotacion_cantidad, 0)} {unidad} por {insumo.dotacion_periodo === 'MENSUAL' ? 'mes' : 'semana'}</small>
+                        )}
+                      </td>
+                      <td className="sin-salto">
+                        <span className={insumo.tipo_control === 'LIBRE' ? 'insignia lila' : 'insignia verde'}>{insumo.tipo_control}</span>
+                        {esAdmin && (
+                          <ClasificarInsumo
+                            insumo={insumo}
+                            token={auth.token}
+                            onGuardado={(nuevo) => setInsumos((lista) => lista.map((i) => (i.id === nuevo.id ? nuevo : i)))}
+                          />
+                        )}
+                      </td>
+                      {veCosto && <td className="num">S/ {cifra(insumo.costo_unitario, 2)} /{unidad}</td>}
+                      <td className={insumo.bajo_stock_minimo ? 'num texto-rojo' : 'num'}>{cifra(insumo.stock_actual, 2)} {unidad}</td>
+                      <td className="num">{cifra(insumo.stock_minimo, 0)} {unidad}</td>
+                      <td className={lote?.vencido || lote?.dias_restantes <= 3 ? 'mono texto-ambar fuerte' : 'mono'}>
+                        {lote ? diaMes(lote.fecha_vencimiento) : '—'}
+                      </td>
+                      <td>
+                        {insumo.bajo_stock_minimo && <span className="texto-rojo fuerte">Bajo el mínimo</span>}
+                        {insumo.bajo_stock_minimo && lote && <br />}
+                        {lote && <span className="texto-ambar fuerte">{vencimiento(lote)}</span>}
+                        {!insumo.bajo_stock_minimo && !lote && (insumo.tipo_control === 'LIBRE' ? 'Por conteo' : 'Normal')}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          )
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#F3F4F1',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    padding: '40px 20px',
-  },
-  card: {
-    maxWidth: '900px',
-    margin: '0 auto',
-    backgroundColor: '#ffffff',
-    padding: '32px',
-    borderRadius: '8px',
-    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.1)',
-    overflowX: 'auto',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '16px',
-    marginBottom: '20px',
-  },
-  headerButtons: {
-    display: 'flex',
-    gap: '8px',
-  },
-  title: {
-    margin: '0 0 8px 0',
-    fontSize: '24px',
-    color: '#1D5B47',
-  },
-  subtitle: {
-    margin: 0,
-    fontSize: '15px',
-    color: '#5f6368',
-  },
-  detail: {
-    margin: '6px 0',
-    fontSize: '14px',
-    color: '#3c4043',
-  },
-  error: {
-    margin: '0 0 16px 0',
-    padding: '10px 12px',
-    backgroundColor: '#fce8e6',
-    color: '#d93025',
-    borderRadius: '4px',
-    fontSize: '14px',
-    border: '1px solid #f5c6cb',
-  },
-  success: {
-    margin: '0 0 16px 0',
-    padding: '10px 12px',
-    backgroundColor: '#e6f4ea',
-    color: '#137333',
-    borderRadius: '4px',
-    fontSize: '14px',
-    border: '1px solid #ceead6',
-  },
-  form: {
-    marginBottom: '28px',
-    padding: '20px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '6px',
-    border: '1px solid #dadce0',
-  },
-  formTitle: {
-    margin: '0 0 16px 0',
-    fontSize: '16px',
-    color: '#3c4043',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: '14px',
-    marginBottom: '16px',
-  },
-  label: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    fontSize: '13px',
-    color: '#5f6368',
-  },
-  input: {
-    padding: '8px 10px',
-    fontSize: '14px',
-    border: '1px solid #dadce0',
-    borderRadius: '4px',
-    backgroundColor: '#ffffff',
-  },
-  fieldError: {
-    fontSize: '12px',
-    color: '#d93025',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '14px',
-  },
-  th: {
-    textAlign: 'left',
-    padding: '10px 8px',
-    borderBottom: '2px solid #dadce0',
-    color: '#5f6368',
-    fontWeight: '500',
-  },
-  thNum: {
-    textAlign: 'right',
-    padding: '10px 8px',
-    borderBottom: '2px solid #dadce0',
-    color: '#5f6368',
-    fontWeight: '500',
-  },
-  td: {
-    padding: '10px 8px',
-    borderBottom: '1px solid #f1f3f4',
-    color: '#3c4043',
-  },
-  tdNum: {
-    padding: '10px 8px',
-    borderBottom: '1px solid #f1f3f4',
-    color: '#3c4043',
-    textAlign: 'right',
-    fontVariantNumeric: 'tabular-nums',
-  },
-  badgeAlerta: {
-    padding: '2px 8px',
-    marginRight: '4px',
-    borderRadius: '12px',
-    backgroundColor: '#fef7e0',
-    color: '#b06000',
-    fontSize: '12px',
-    whiteSpace: 'nowrap',
-  },
-  badgeStock: {
-    padding: '2px 8px',
-    marginRight: '4px',
-    borderRadius: '12px',
-    backgroundColor: '#fce8e6',
-    color: '#c5221f',
-    fontSize: '12px',
-    whiteSpace: 'nowrap',
-  },
-  estadoNormal: {
-    color: '#188038',
-    fontSize: '12px',
-  },
-  primaryButton: {
-    padding: '10px 24px',
-    fontSize: '14px',
-    fontWeight: '500',
-    backgroundColor: '#1D5B47',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  secondaryButton: {
-    padding: '8px 14px',
-    fontSize: '14px',
-    backgroundColor: '#ffffff',
-    color: '#1D5B47',
-    border: '1px solid #1D5B47',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-  logoutButton: {
-    padding: '8px 14px',
-    fontSize: '14px',
-    backgroundColor: '#ffffff',
-    color: '#d93025',
-    border: '1px solid #d93025',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-};
+// "16.140" → "16,14": cifras con coma, como el prototipo; los mínimos sin decimales si son enteros
+function cifra(valor, decimales) {
+  const n = Number(valor);
+  const d = decimales === 0 && !Number.isInteger(n) ? 2 : decimales;
+  return n.toFixed(d).replace('.', ',');
+}
 
 export default Insumos;
