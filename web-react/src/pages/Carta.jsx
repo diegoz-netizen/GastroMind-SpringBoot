@@ -12,7 +12,7 @@ const conToken = (token) => ({ headers: { Authorization: `Bearer ${token}` } });
 
 const FORM_VACIO = { nombre: '', precio: '', categoria: '', requiere_receta: true };
 
-const soles = (precio) => `S/ ${Number(precio).toFixed(2)}`;
+const soles = (precio) => `S/ ${Number(precio).toFixed(2).replace('.', ',')}`;
 
 // HU-07: el gerente crea, edita y desactiva platillos con su precio (CA-07)
 function Carta() {
@@ -26,8 +26,11 @@ function Carta() {
   const [exito, setExito] = useState('');
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [formAbierto, setFormAbierto] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+  const [categoriaFiltro, setCategoriaFiltro] = useState(null);
 
-  const { auth, logout } = useAuth();
+  const { auth } = useAuth();
   const navigate = useNavigate();
   const esAdmin = auth.rol?.toUpperCase() === 'ADMINISTRADOR';
 
@@ -110,6 +113,7 @@ function Carta() {
       }
       setEditandoId(null);
       setForm(FORM_VACIO);
+      setFormAbierto(false);
     } catch (err) {
       // 400: Django devuelve {error: 'VALIDACION', mensaje, campos: {campo: mensaje}} (HL-014)
       if (err.response?.data?.error === 'VALIDACION') {
@@ -153,416 +157,174 @@ function Carta() {
     }
   };
 
-  const cerrarSesion = () => {
-    logout();
-    navigate('/');
+  const errorDe = (campo) => erroresCampo[campo] && <span className="error-campo">{erroresCampo[campo]}</span>;
+
+  const abrirNuevo = () => {
+    limpiarMensajes();
+    setEditandoId(null);
+    setForm(FORM_VACIO);
+    setFormAbierto(true);
   };
 
-  const errorDe = (campo) =>
-    erroresCampo[campo] && <span style={styles.fieldError}>{erroresCampo[campo]}</span>;
+  // Mismo orden que la API: por categoría y nombre; luego la búsqueda, la categoría y "solo activos"
+  const texto = busqueda.trim().toLowerCase();
+  const ordenados = [...productos].sort(
+    (a, b) => a.categoria_nombre.localeCompare(b.categoria_nombre, 'es') || a.nombre.localeCompare(b.nombre, 'es'));
+  const visibles = ordenados.filter((p) =>
+    (!soloActivos || p.estado === 'ACTIVO')
+    && (categoriaFiltro === null || p.categoria === categoriaFiltro)
+    && p.nombre.toLowerCase().includes(texto));
+  const cuantos = (idCategoria) => productos.filter((p) => p.categoria === idCategoria).length;
 
-  // Mismo orden que la API: por categoría y nombre
-  const visibles = productos
-    .filter((p) => !soloActivos || p.estado === 'ACTIVO')
-    .sort(
-      (a, b) =>
-        a.categoria_nombre.localeCompare(b.categoria_nombre, 'es') || a.nombre.localeCompare(b.nombre, 'es')
-    );
+  // Lo que va debajo del nombre, como en el prototipo: "Fondos · 6 insumos"
+  const detalle = (platillo) => {
+    if (!platillo.requiere_receta) return `${platillo.categoria_nombre} · sin receta, no descuenta stock`;
+    if (platillo.detalles_receta.length === 0) return `${platillo.categoria_nombre} · falta la receta`;
+    return `${platillo.categoria_nombre} · ${platillo.detalles_receta.length} insumos`;
+  };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <div>
-            <h1 style={styles.title}>Carta</h1>
-            <p style={styles.subtitle}>
-              {auth.nombreCompleto} · {auth.rol}
-            </p>
-          </div>
-          <div style={styles.headerButtons}>
-          </div>
+    <div className="pagina">
+      <div className="cabecera">
+        <div>
+          <h1>Carta</h1>
+          <p>Precio, costo según la receta y margen de cada platillo</p>
         </div>
-
-        {error && <p style={styles.error}>{error}</p>}
-        {exito && <p style={styles.success}>{exito}</p>}
-
-        {esAdmin && !loading && (
-          <form onSubmit={guardar} style={styles.form} noValidate>
-            <h2 style={styles.formTitle}>{editandoId ? 'Editar platillo' : 'Agregar platillo'}</h2>
-            {categorias.length === 0 ? (
-              <p style={styles.detail}>Tu restaurante no tiene categorías todavía; primero hay que crear una.</p>
-            ) : (
-              <>
-                <div style={styles.grid}>
-                  <label style={styles.label}>
-                    Nombre *
-                    <input name="nombre" value={form.nombre} onChange={cambiar} style={styles.input} maxLength={150} />
-                    {errorDe('nombre')}
-                  </label>
-                  <label style={styles.label}>
-                    Precio (S/) *
-                    <input name="precio" type="number" step="0.01" min="0.01" value={form.precio}
-                      onChange={cambiar} style={styles.input} />
-                    {errorDe('precio')}
-                  </label>
-                  <label style={styles.label}>
-                    Categoría *
-                    <select name="categoria" value={form.categoria} onChange={cambiar} style={styles.input}>
-                      <option value="">Elige una categoría</option>
-                      {categorias.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nombre}
-                        </option>
-                      ))}
-                    </select>
-                    {errorDe('categoria')}
-                  </label>
-                  <label style={styles.checkLabel}>
-                    <input name="requiere_receta" type="checkbox" checked={form.requiere_receta} onChange={cambiar} />
-                    Lleva receta (descuenta insumos)
-                  </label>
-                </div>
-                <div style={styles.formButtons}>
-                  <button type="submit" disabled={guardando}
-                    style={{ ...styles.primaryButton, ...(guardando ? styles.buttonDisabled : {}) }}>
-                    {guardando ? 'Guardando...' : editandoId ? 'Guardar cambios' : 'Agregar'}
-                  </button>
-                  {editandoId && (
-                    <button type="button" onClick={cancelarEdicion} style={styles.secondaryButton}>
-                      Cancelar
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-          </form>
+        {esAdmin && categorias.length > 0 && (
+          <button type="button" className="boton primario" onClick={abrirNuevo}>Nuevo platillo</button>
         )}
+      </div>
 
-        <label style={styles.filtro}>
-          <input type="checkbox" checked={soloActivos} onChange={(e) => setSoloActivos(e.target.checked)} />
-          Solo platillos activos (los que salen en la toma de pedidos)
-        </label>
+      {error && <div className="aviso error">{error}</div>}
+      {exito && <div className="aviso ok">{exito}</div>}
+      {esAdmin && !loading && categorias.length === 0 && (
+        <div className="aviso info">Tu restaurante no tiene categorías todavía; primero hay que crear una.</div>
+      )}
 
+      <div className="barra-filtros">
+        <input
+          className="buscador"
+          type="search"
+          placeholder="Buscar platillo"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          aria-label="Buscar platillo"
+        />
+        <div className="pastillas">
+          <button type="button" className={categoriaFiltro === null ? 'pastilla activa' : 'pastilla'} onClick={() => setCategoriaFiltro(null)}>
+            Todos · {productos.length}
+          </button>
+          {categorias.map((c) => (
+            <button key={c.id} type="button" className={categoriaFiltro === c.id ? 'pastilla activa' : 'pastilla'} onClick={() => setCategoriaFiltro(c.id)}>
+              {c.nombre} · {cuantos(c.id)}
+            </button>
+          ))}
+          <label className="pastilla-check">
+            <input type="checkbox" checked={soloActivos} onChange={(e) => setSoloActivos(e.target.checked)} />
+            Solo activos
+          </label>
+        </div>
+      </div>
+
+      {formAbierto && (
+        <div className="modal-fondo">
+          <form className="modal modal-ancho" onSubmit={guardar} noValidate>
+            <h2>{editandoId ? 'Editar platillo' : 'Nuevo platillo'}</h2>
+            <div className="rejilla-campos">
+              <label className="campo">Nombre *
+                <input name="nombre" value={form.nombre} onChange={cambiar} maxLength={150} />
+                {errorDe('nombre')}
+              </label>
+              <label className="campo">Precio (S/) *
+                <input name="precio" type="number" step="0.01" min="0.01" value={form.precio} onChange={cambiar} />
+                {errorDe('precio')}
+              </label>
+              <label className="campo">Categoría *
+                <select name="categoria" value={form.categoria} onChange={cambiar}>
+                  <option value="">Elige una categoría</option>
+                  {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+                {errorDe('categoria')}
+              </label>
+            </div>
+            <label className="campo-check">
+              <input name="requiere_receta" type="checkbox" checked={form.requiere_receta} onChange={cambiar} />
+              Lleva receta (descuenta insumos al servir)
+            </label>
+            <div className="fila-acciones">
+              <button type="submit" className="boton primario" disabled={guardando}>
+                {guardando ? 'Guardando...' : editandoId ? 'Guardar cambios' : 'Agregar a la carta'}
+              </button>
+              <button type="button" className="boton" onClick={() => { cancelarEdicion(); setFormAbierto(false); }}>Cancelar</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="tarjeta sin-relleno">
         {loading ? (
-          <p style={styles.detail}>Cargando carta...</p>
-        ) : visibles.length === 0 && !error ? (
-          <p style={styles.detail}>No hay platillos para mostrar.</p>
+          <p className="vacio con-margen">Cargando carta...</p>
+        ) : visibles.length === 0 ? (
+          !error && <p className="vacio con-margen">No hay platillos para mostrar.</p>
         ) : (
-          visibles.length > 0 && (
-            <table style={styles.table}>
+          <div className="tabla-caja">
+            <table className="tabla tabla-panel">
               <thead>
                 <tr>
-                  <th style={styles.th}>Categoría</th>
-                  <th style={styles.th}>Platillo</th>
-                  <th style={styles.thNum}>Precio</th>
+                  <th>Platillo</th>
+                  <th className="num">Precio</th>
                   {/* Review 2: costo y margen solo para el admin */}
-                  {esAdmin && <th style={styles.thNum}>Costo</th>}
-                  {esAdmin && <th style={styles.thNum}>Margen</th>}
-                  <th style={styles.th}>Receta</th>
-                  <th style={styles.th}>Estado</th>
-                  {esAdmin && <th style={styles.th}></th>}
+                  {esAdmin && <th className="num">Costo</th>}
+                  {esAdmin && <th className="num">% costo</th>}
+                  {esAdmin && <th className="num">Margen</th>}
+                  <th>Estado</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {visibles.map((platillo) => {
                   const activo = platillo.estado === 'ACTIVO';
-                  const faltaReceta = platillo.requiere_receta && platillo.detalles_receta.length === 0;
                   // HU-08: la API manda el costo en null si el platillo no lleva receta o aún no la tiene
                   const sinCosto = platillo.costo == null;
                   return (
-                    <tr key={platillo.id} style={activo ? undefined : styles.filaInactiva}>
-                      <td style={styles.td}>{platillo.categoria_nombre}</td>
-                      <td style={styles.td}>{platillo.nombre}</td>
-                      <td style={styles.tdNum}>{soles(platillo.precio)}</td>
-                      {esAdmin && <td style={styles.tdNum}>{sinCosto ? '—' : soles(platillo.costo)}</td>}
+                    <tr key={platillo.id} className={activo ? undefined : 'apagada'}>
+                      <td>
+                        {platillo.nombre}
+                        <small className={platillo.requiere_receta && platillo.detalles_receta.length === 0 ? 'sub texto-ambar' : 'sub'}>
+                          {detalle(platillo)}
+                        </small>
+                      </td>
+                      <td className="num">{soles(platillo.precio)}</td>
+                      {esAdmin && <td className="num">{sinCosto ? '—' : soles(platillo.costo)}</td>}
+                      {esAdmin && <td className="num">{sinCosto || platillo.porcentaje_costo == null ? '—' : `${Math.round(platillo.porcentaje_costo)} %`}</td>}
                       {esAdmin && (
-                      <td style={{ ...styles.tdNum, ...(Number(platillo.margen) < 0 ? styles.margenNegativo : {}) }}>
-                        {sinCosto ? (
-                          '—'
-                        ) : (
+                        <td className={Number(platillo.margen) < 0 ? 'num texto-rojo' : 'num'}>{sinCosto ? '—' : soles(platillo.margen)}</td>
+                      )}
+                      <td>{activo ? 'Activo' : 'Inactivo'}</td>
+                      <td className="acciones">
+                        {/* HU-06: desde aquí se abre la receta del platillo (el admin la arma; el resto solo la ve) */}
+                        {platillo.requiere_receta && (
+                          <button type="button" className="enlace" onClick={() => navigate(`/carta/${platillo.id}/receta`)}>Receta</button>
+                        )}
+                        {esAdmin && (
                           <>
-                            {soles(platillo.margen)}
-                            {/* La API lo manda null si el precio es 0 (la BD lo permite): no se muestra */}
-                            {platillo.porcentaje_costo != null && (
-                              <span style={styles.porcentaje}>{platillo.porcentaje_costo} % en insumos</span>
-                            )}
+                            <button type="button" className="enlace" onClick={() => { editar(platillo); setFormAbierto(true); }}>Editar</button>
+                            <button type="button" className={activo ? 'enlace peligro' : 'enlace'} onClick={() => cambiarEstado(platillo)}>
+                              {activo ? 'Desactivar' : 'Activar'}
+                            </button>
                           </>
                         )}
                       </td>
-                      )}
-                      <td style={styles.td}>
-                        {/* HU-06: desde aquí se abre la receta del platillo (el admin la arma; el resto solo la ve) */}
-                        {!platillo.requiere_receta ? (
-                          'No lleva'
-                        ) : (
-                          <button onClick={() => navigate(`/carta/${platillo.id}/receta`)}
-                            style={{ ...styles.linkButton, ...styles.recetaLink, ...(faltaReceta ? styles.faltaReceta : {}) }}>
-                            {faltaReceta ? 'Falta la receta' : `${platillo.detalles_receta.length} insumo(s)`}
-                          </button>
-                        )}
-                      </td>
-                      <td style={styles.td}>
-                        <span style={activo ? styles.badgeActivo : styles.badgeInactivo}>
-                          {activo ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </td>
-                      {esAdmin && (
-                        <td style={styles.tdAcciones}>
-                          <button onClick={() => editar(platillo)} style={styles.linkButton}>
-                            Editar
-                          </button>
-                          <button onClick={() => cambiarEstado(platillo)}
-                            style={activo ? styles.dangerLink : styles.linkButton}>
-                            {activo ? 'Desactivar' : 'Activar'}
-                          </button>
-                        </td>
-                      )}
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-          )
+          </div>
         )}
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#F3F4F1',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    padding: '40px 20px',
-  },
-  card: {
-    maxWidth: '1040px',
-    margin: '0 auto',
-    backgroundColor: '#ffffff',
-    padding: '32px',
-    borderRadius: '8px',
-    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.1)',
-    overflowX: 'auto',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '16px',
-    marginBottom: '20px',
-  },
-  headerButtons: {
-    display: 'flex',
-    gap: '8px',
-  },
-  title: {
-    margin: '0 0 8px 0',
-    fontSize: '24px',
-    color: '#1D5B47',
-  },
-  subtitle: {
-    margin: 0,
-    fontSize: '15px',
-    color: '#5f6368',
-  },
-  detail: {
-    margin: '6px 0',
-    fontSize: '14px',
-    color: '#3c4043',
-  },
-  error: {
-    margin: '0 0 16px 0',
-    padding: '10px 12px',
-    backgroundColor: '#fce8e6',
-    color: '#d93025',
-    borderRadius: '4px',
-    fontSize: '14px',
-    border: '1px solid #f5c6cb',
-  },
-  success: {
-    margin: '0 0 16px 0',
-    padding: '10px 12px',
-    backgroundColor: '#e6f4ea',
-    color: '#137333',
-    borderRadius: '4px',
-    fontSize: '14px',
-    border: '1px solid #ceead6',
-  },
-  form: {
-    marginBottom: '20px',
-    padding: '20px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '6px',
-    border: '1px solid #dadce0',
-  },
-  formTitle: {
-    margin: '0 0 16px 0',
-    fontSize: '16px',
-    color: '#3c4043',
-  },
-  formButtons: {
-    display: 'flex',
-    gap: '8px',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: '14px',
-    marginBottom: '16px',
-  },
-  label: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    fontSize: '13px',
-    color: '#5f6368',
-  },
-  checkLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontSize: '13px',
-    color: '#5f6368',
-  },
-  filtro: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    margin: '0 0 12px 0',
-    fontSize: '14px',
-    color: '#3c4043',
-  },
-  input: {
-    padding: '8px 10px',
-    fontSize: '14px',
-    border: '1px solid #dadce0',
-    borderRadius: '4px',
-    backgroundColor: '#ffffff',
-  },
-  fieldError: {
-    fontSize: '12px',
-    color: '#d93025',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '14px',
-  },
-  th: {
-    textAlign: 'left',
-    padding: '10px 8px',
-    borderBottom: '2px solid #dadce0',
-    color: '#5f6368',
-    fontWeight: '500',
-  },
-  thNum: {
-    textAlign: 'right',
-    padding: '10px 8px',
-    borderBottom: '2px solid #dadce0',
-    color: '#5f6368',
-    fontWeight: '500',
-  },
-  td: {
-    padding: '10px 8px',
-    borderBottom: '1px solid #f1f3f4',
-    color: '#3c4043',
-  },
-  tdNum: {
-    padding: '10px 8px',
-    borderBottom: '1px solid #f1f3f4',
-    color: '#3c4043',
-    textAlign: 'right',
-    fontVariantNumeric: 'tabular-nums',
-    whiteSpace: 'nowrap',
-  },
-  tdAcciones: {
-    padding: '10px 8px',
-    borderBottom: '1px solid #f1f3f4',
-    whiteSpace: 'nowrap',
-    textAlign: 'right',
-  },
-  porcentaje: {
-    display: 'block',
-    fontSize: '12px',
-    color: '#5f6368',
-  },
-  margenNegativo: {
-    color: '#d93025',
-  },
-  recetaLink: {
-    padding: 0,
-    textDecoration: 'underline',
-  },
-  faltaReceta: {
-    color: '#b06000',
-    fontWeight: '500',
-  },
-  filaInactiva: {
-    opacity: 0.6,
-  },
-  badgeActivo: {
-    padding: '2px 8px',
-    borderRadius: '12px',
-    backgroundColor: '#e6f4ea',
-    color: '#137333',
-    fontSize: '12px',
-  },
-  badgeInactivo: {
-    padding: '2px 8px',
-    borderRadius: '12px',
-    backgroundColor: '#f1f3f4',
-    color: '#5f6368',
-    fontSize: '12px',
-  },
-  primaryButton: {
-    padding: '10px 24px',
-    fontSize: '14px',
-    fontWeight: '500',
-    backgroundColor: '#1D5B47',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  secondaryButton: {
-    padding: '8px 14px',
-    fontSize: '14px',
-    backgroundColor: '#ffffff',
-    color: '#1D5B47',
-    border: '1px solid #1D5B47',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  linkButton: {
-    padding: '4px 8px',
-    fontSize: '13px',
-    backgroundColor: 'transparent',
-    color: '#1D5B47',
-    border: 'none',
-    cursor: 'pointer',
-  },
-  dangerLink: {
-    padding: '4px 8px',
-    fontSize: '13px',
-    backgroundColor: 'transparent',
-    color: '#d93025',
-    border: 'none',
-    cursor: 'pointer',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-  logoutButton: {
-    padding: '8px 14px',
-    fontSize: '14px',
-    backgroundColor: '#ffffff',
-    color: '#d93025',
-    border: '1px solid #d93025',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-};
 
 export default Carta;
