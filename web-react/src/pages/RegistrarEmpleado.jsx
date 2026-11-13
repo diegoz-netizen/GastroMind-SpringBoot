@@ -81,204 +81,67 @@ function RegistrarEmpleado() {
     }
   };
 
-  const errorDe = (campo) =>
-    erroresCampo[campo] && <span style={styles.fieldError}>{erroresCampo[campo]}</span>;
+  const errorDe = (campo) => erroresCampo[campo] && <span className="error-campo">{erroresCampo[campo]}</span>;
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <div>
-            <h1 style={styles.title}>Registrar empleado</h1>
-            <p style={styles.subtitle}>
-              {auth.nombreCompleto} · {auth.rol}
-            </p>
-          </div>
-          <button onClick={() => navigate('/empleados')} style={styles.secondaryButton}>
-            Volver al personal
-          </button>
+    <div className="pagina">
+      <div className="cabecera">
+        <div>
+          <h1>Registrar empleado</h1>
+          <p>Nace activo en tu restaurante y recibe un correo para crear su contraseña</p>
         </div>
-
-        {error && <p style={styles.error}>{error}</p>}
-        {exito && <p style={styles.success}>{exito}</p>}
-        {pinNuevo && (
-          <div style={styles.pinBox}>
-            <span>PIN para la app</span>
-            <strong style={styles.pin}>{pinNuevo}</strong>
-            <span style={styles.detail}>
-              Anótalo y entrégaselo en persona: no se vuelve a mostrar ni va en el correo.
-            </span>
-          </div>
-        )}
-
-        <form onSubmit={registrar} style={styles.form} noValidate>
-          <div style={styles.grid}>
-            <label style={styles.label}>
-              Nombre completo *
-              <input name="nombreCompleto" value={form.nombreCompleto} onChange={cambiar} style={styles.input}
-                maxLength={150} />
-              {errorDe('nombreCompleto')}
-            </label>
-            <label style={styles.label}>
-              Correo *
-              <input name="correo" type="email" value={form.correo} onChange={cambiar} style={styles.input}
-                maxLength={150} />
-              {errorDe('correo')}
-            </label>
-            <label style={styles.label}>
-              Rol *
-              <select name="rolId" value={form.rolId} onChange={cambiar} style={styles.input}>
-                <option value="">-- Seleccionar rol --</option>
-                {ROLES.map((r) => (
-                  <option key={r.id} value={r.id}>{r.nombre}</option>
-                ))}
-              </select>
-              {errorDe('rolId')}
-            </label>
-            <label style={styles.label}>
-              PIN de 4 dígitos (opcional: si lo dejas vacío, se genera)
-              <input name="pinAcceso" type="password" inputMode="numeric" value={form.pinAcceso} onChange={cambiar}
-                style={styles.input} maxLength={4} autoComplete="new-password" />
-              {errorDe('pinAcceso')}
-            </label>
-          </div>
-          <p style={styles.detail}>
-            El empleado nace ACTIVO en tu restaurante y recibe un correo con un enlace (24 h, un solo uso) para
-            crear su contraseña.
-          </p>
-          <button type="submit" disabled={guardando}
-            style={{ ...styles.primaryButton, ...(guardando ? styles.buttonDisabled : {}) }}>
-            {guardando ? 'Guardando...' : 'Registrar'}
-          </button>
-        </form>
+        <button type="button" className="boton" onClick={() => navigate('/empleados')}>Volver al personal</button>
       </div>
+
+      {error && <div className="aviso error">{error}</div>}
+      {exito && <div className="aviso ok">{exito}</div>}
+      {pinNuevo && (
+        // HU-01-b: el PIN se muestra una sola vez
+        <div className="tarjeta pin-caja">
+          <span className="ayuda">PIN para la app</span>
+          <strong className="mono pin">{pinNuevo}</strong>
+          <span className="ayuda">Anótalo y entrégaselo en persona: no se vuelve a mostrar ni va en el correo.</span>
+        </div>
+      )}
+
+      <form className="tarjeta formulario" onSubmit={registrar} noValidate>
+        <div className="titulo-tarjeta">
+          <h2>Datos del empleado</h2>
+        </div>
+        <div className="rejilla-campos">
+          <label className="campo">Nombre completo *
+            <input name="nombreCompleto" value={form.nombreCompleto} onChange={cambiar} maxLength={150} />
+            {errorDe('nombreCompleto')}
+          </label>
+          <label className="campo">Correo *
+            <input name="correo" type="email" value={form.correo} onChange={cambiar} maxLength={150} />
+            {errorDe('correo')}
+          </label>
+          <label className="campo">Rol *
+            <select name="rolId" value={form.rolId} onChange={cambiar}>
+              <option value="">Elige un rol</option>
+              {ROLES.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+            </select>
+            {errorDe('rolId')}
+          </label>
+          <label className="campo">PIN de 4 dígitos (opcional)
+            <input name="pinAcceso" type="password" inputMode="numeric" value={form.pinAcceso} onChange={cambiar}
+              maxLength={4} autoComplete="new-password" placeholder="Si lo dejas vacío, se genera" />
+            {errorDe('pinAcceso')}
+          </label>
+        </div>
+        <p className="ayuda">
+          El enlace del correo dura 24 h y es de un solo uso. Mozo y almacenero entran a la app de Kotlin con su PIN.
+        </p>
+        <div className="fila-acciones">
+          <button type="submit" className="boton primario" disabled={guardando}>
+            {guardando ? 'Guardando...' : 'Registrar empleado'}
+          </button>
+          <button type="button" className="enlace" onClick={() => navigate('/empleados')}>Cancelar</button>
+        </div>
+      </form>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#F3F4F1',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    padding: '40px 20px',
-  },
-  card: {
-    maxWidth: '900px',
-    margin: '0 auto',
-    backgroundColor: '#ffffff',
-    padding: '32px',
-    borderRadius: '8px',
-    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.1)',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '16px',
-    marginBottom: '20px',
-  },
-  title: {
-    margin: '0 0 8px 0',
-    fontSize: '24px',
-    color: '#1D5B47',
-  },
-  subtitle: {
-    margin: 0,
-    fontSize: '15px',
-    color: '#5f6368',
-  },
-  detail: {
-    margin: '0 0 16px 0',
-    fontSize: '13px',
-    color: '#5f6368',
-  },
-  error: {
-    margin: '0 0 16px 0',
-    padding: '10px 12px',
-    backgroundColor: '#fce8e6',
-    color: '#d93025',
-    borderRadius: '4px',
-    fontSize: '14px',
-    border: '1px solid #f5c6cb',
-  },
-  pinBox: {
-    display: 'grid',
-    gap: '4px',
-    margin: '0 0 16px 0',
-    padding: '12px',
-    border: '1px solid #c6dafc',
-    borderRadius: '4px',
-    backgroundColor: '#DCEBE4',
-    fontSize: '14px',
-  },
-  pin: {
-    fontFamily: 'monospace',
-    fontSize: '28px',
-    letterSpacing: '6px',
-  },
-  success: {
-    margin: '0 0 16px 0',
-    padding: '10px 12px',
-    backgroundColor: '#e6f4ea',
-    color: '#137333',
-    borderRadius: '4px',
-    fontSize: '14px',
-    border: '1px solid #ceead6',
-  },
-  form: {
-    padding: '20px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '6px',
-    border: '1px solid #dadce0',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: '14px',
-    marginBottom: '16px',
-  },
-  label: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    fontSize: '13px',
-    color: '#5f6368',
-  },
-  input: {
-    padding: '8px 10px',
-    fontSize: '14px',
-    border: '1px solid #dadce0',
-    borderRadius: '4px',
-    backgroundColor: '#ffffff',
-  },
-  fieldError: {
-    fontSize: '12px',
-    color: '#d93025',
-  },
-  primaryButton: {
-    padding: '10px 24px',
-    fontSize: '14px',
-    fontWeight: '500',
-    backgroundColor: '#1D5B47',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  secondaryButton: {
-    padding: '8px 14px',
-    fontSize: '14px',
-    backgroundColor: '#ffffff',
-    color: '#1D5B47',
-    border: '1px solid #1D5B47',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-};
 
 export default RegistrarEmpleado;

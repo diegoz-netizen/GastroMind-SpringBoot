@@ -206,3 +206,7 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
 .interruptor.encendido .interruptor-texto { color: var(--verde); font-weight: 600; }
 .interruptor:focus-visible { outline: 2px solid var(--verde); outline-offset: 3px; border-radius: 12px; }
 @media (prefers-reduced-motion: reduce) { .interruptor .perilla, .interruptor .perilla::after { transition: none; } }
+.tarjeta.formulario { display: grid; gap: 14px; max-width: 880px; }
+.tarjeta.pin-caja { display: grid; gap: 4px; max-width: 880px; border-left: 4px solid var(--verde); }
+.pin-caja .pin { font-size: 30px; letter-spacing: 8px; color: var(--verde); }
+.campo input, .campo select { box-sizing: border-box; height: 38px; }
