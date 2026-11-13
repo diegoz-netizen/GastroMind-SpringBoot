@@ -197,3 +197,12 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
 .costo-porcion b { font-family: var(--mono); font-size: 20px; }
 .costo-porcion small { font-size: 13px; color: var(--tinta-3); font-weight: 500; }
 .boton.ancho { flex: 1; padding: 12px 14px; font-size: 14px; }
+.interruptor { display: inline-flex; align-items: center; gap: 10px; border: 0; background: none; padding: 0; font: inherit; font-size: 13.5px; color: var(--tinta-2); cursor: pointer; }
+.interruptor:disabled { opacity: .6; cursor: default; }
+.interruptor .perilla { position: relative; width: 40px; height: 22px; border-radius: 11px; background: #d5d9d3; transition: background .15s; flex: none; }
+.interruptor .perilla::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.interruptor.encendido .perilla { background: var(--verde); }
+.interruptor.encendido .perilla::after { transform: translateX(18px); }
+.interruptor.encendido .interruptor-texto { color: var(--verde); font-weight: 600; }
+.interruptor:focus-visible { outline: 2px solid var(--verde); outline-offset: 3px; border-radius: 12px; }
+@media (prefers-reduced-motion: reduce) { .interruptor .perilla, .interruptor .perilla::after { transition: none; } }
