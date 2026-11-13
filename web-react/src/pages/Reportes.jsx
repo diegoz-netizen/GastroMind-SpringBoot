@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import {
-  CATALOGO, cantidadDe, conSigno, conToken, descargarExcel, enSoles, fechaCorta, mensajeError, periodoDelMes,
-} from '../config/reportes';
+  CATALOGO, cantidadDe, conSigno, conToken, descargarExcel, enPorcentaje, enSoles, fechaCorta, mensajeError, periodoDelMes, unidadDe } from '../config/reportes';
 
 const META_MERMA = 2;
 // Escala de las barras: 10 % = barra llena
@@ -77,7 +76,7 @@ function Reportes() {
         <section className="tarjeta">
           <div className="titulo-tarjeta">
             <h2>Merma sobre el consumo</h2>
-            {merma && <span className={Number(merma.total.porcentaje) > META_MERMA ? 'chip ambar' : 'chip verde'}>{merma.total.porcentaje} % · meta {META_MERMA} %</span>}
+            {merma && <span className={Number(merma.total.porcentaje) > META_MERMA ? 'chip ambar' : 'chip verde'}>{enPorcentaje(merma.total.porcentaje)} · meta {META_MERMA} %</span>}
           </div>
           <p className="ayuda">Merma ÷ consumo total del insumo. {merma && `Perdido en el periodo: ${enSoles(merma.total.costo_merma)}.`} La barra llena equivale a {ESCALA_BARRA} %.</p>
           <div className="tabla-caja">
@@ -87,14 +86,14 @@ function Reportes() {
                 {merma?.filas.map((f) => (
                   <tr key={f.id}>
                     <td>{f.insumo}</td>
-                    <td className="num">{cantidadDe(f.consumo)} {f.unidad}</td>
-                    <td className="num">{cantidadDe(f.merma)} {f.unidad}</td>
+                    <td className="num">{cantidadDe(f.consumo)} {unidadDe(f.unidad)}</td>
+                    <td className="num">{cantidadDe(f.merma)} {unidadDe(f.unidad)}</td>
                     <td>
                       <div className="barra-h">
                         <div className="pista">
                           <div className={f.porcentaje > 5 ? 'relleno alto' : 'relleno'} style={{ width: `${Math.min(100, (f.porcentaje / ESCALA_BARRA) * 100)}%` }} />
                         </div>
-                        <span className="valor">{f.porcentaje} %</span>
+                        <span className="valor">{enPorcentaje(f.porcentaje)}</span>
                       </div>
                     </td>
                   </tr>
@@ -115,9 +114,9 @@ function Reportes() {
                 {filasConsumo.map((f) => (
                   <tr key={f.id} className={f.resaltar ? 'resaltada' : ''}>
                     <td>{f.insumo}</td>
-                    <td className="num">{cantidadDe(f.teorico)} {f.unidad}</td>
-                    <td className="num">{cantidadDe(f.real)} {f.unidad}</td>
-                    <td className="num">{conSigno(f.diferencia)} {f.unidad} · {conSigno(f.porcentaje)} %</td>
+                    <td className="num">{cantidadDe(f.teorico)} {unidadDe(f.unidad)}</td>
+                    <td className="num">{cantidadDe(f.real)} {unidadDe(f.unidad)}</td>
+                    <td className="num">{conSigno(f.diferencia)} {unidadDe(f.unidad)} · {conSigno(f.porcentaje)} %</td>
                   </tr>
                 ))}
               </tbody>

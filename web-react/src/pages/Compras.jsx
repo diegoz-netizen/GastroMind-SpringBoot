@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { CATALOGO, cantidadDe, conToken, enSoles, fechaCorta, mensajeError } from '../config/reportes';
+import { CATALOGO, cantidadDe, conToken, enSoles, fechaCorta, mensajeError, unidadDe } from '../config/reportes';
 
 const dias = (n) => `${n} ${n === 1 ? 'día' : 'días'}`;
 
@@ -44,7 +44,7 @@ function Compras() {
 
   const copiarLista = async () => {
     const lineas = sugerencia.filas.filter((f) => Number(aComprar(f)) > 0)
-      .map((f) => `${f.insumo}: ${aComprar(f)} ${f.unidad}${f.proveedor ? ` · ${f.proveedor.proveedor}` : ''}`);
+      .map((f) => `${f.insumo}: ${aComprar(f)} ${unidadDe(f.unidad)}${f.proveedor ? ` · ${f.proveedor.proveedor}` : ''}`);
     try {
       await navigator.clipboard.writeText(lineas.join('\n'));
       setAviso({ tipo: 'ok', texto: `Lista copiada: ${lineas.length} insumos.` });
@@ -110,12 +110,12 @@ function Compras() {
               {sugerencia?.filas.map((f) => (
                 <tr key={f.id}>
                   <td>{f.insumo}</td>
-                  <td className="num">{cantidadDe(f.stock)} {f.unidad}</td>
-                  <td className="num">{cantidadDe(f.previsto)} {f.unidad}</td>
-                  <td className="num">{cantidadDe(f.minimo)} {f.unidad}</td>
+                  <td className="num">{cantidadDe(f.stock)} {unidadDe(f.unidad)}</td>
+                  <td className="num">{cantidadDe(f.previsto)} {unidadDe(f.unidad)}</td>
+                  <td className="num">{cantidadDe(f.minimo)} {unidadDe(f.unidad)}</td>
                   <td className="num">
                     <input className="entrada-mini" type="number" min="0" aria-label={`Cantidad de ${f.insumo}`} value={aComprar(f)}
-                      onChange={(e) => setAjustes((a) => ({ ...a, [f.id]: e.target.value }))} /> {f.unidad}
+                      onChange={(e) => setAjustes((a) => ({ ...a, [f.id]: e.target.value }))} /> {unidadDe(f.unidad)}
                   </td>
                   <td>{Number(aComprar(f)) > 0 ? (f.proveedor?.proveedor ?? 'Sin proveedor') : 'No hace falta'}</td>
                 </tr>
@@ -133,7 +133,7 @@ function Compras() {
               {sugerencia?.filas.map((f) => <option key={f.id} value={f.id}>{f.insumo}</option>)}
             </select>
           </label>
-          <label className="campo">Cantidad{comparacion ? ` (${comparacion.unidad})` : ''}
+          <label className="campo">Cantidad{comparacion ? ` (${unidadDe(comparacion.unidad)})` : ''}
             <input type="number" min="1" value={cantidad} onChange={(e) => setCantidad(e.target.value)} />
           </label>
         </div>
@@ -145,7 +145,7 @@ function Compras() {
                 <strong>{o.proveedor}</strong>
                 {o.sugerido && <span className="chip verde">Menor costo</span>}
               </div>
-              <span>{enSoles(o.precio_unitario)} /{comparacion.unidad} · flete {enSoles(o.flete)} · entrega en {dias(o.tiempo_entrega_dias)}</span>
+              <span>{enSoles(o.precio_unitario)} /{unidadDe(comparacion.unidad)} · flete {enSoles(o.flete)} · entrega en {dias(o.tiempo_entrega_dias)}</span>
               <b>{enSoles(o.costo_total)}</b>
             </div>
           ))}

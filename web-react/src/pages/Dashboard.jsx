@@ -8,6 +8,10 @@ import {
   CATALOGO, conToken, descargarExcel, enPorcentaje, enSoles, enSolesEnteros, fechaCorta, mensajeError, nombreMotivo, periodo,
 } from '../config/reportes';
 
+// Eje con coma: 1,5k desde mil soles; debajo, el monto en soles enteros
+const miles = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+const eje = (valor) => (valor >= 1000 ? `${miles.format(valor / 1000)}k` : miles.format(Math.round(valor)));
+
 const PERIODOS = [
   { dias: 0, texto: 'Este mes' },
   { dias: 7, texto: '7 días' },
@@ -36,7 +40,7 @@ function BarrasPorSemana({ semanas }) {
         {[1, 0.5, 0].map((f) => (
           <div key={f}>
             <div className="linea" style={{ top: `${(1 - f) * 100}%` }} />
-            <div className="eje" style={{ top: `${(1 - f) * 100}%` }}>{`${(tope * f) / 1000}k`}</div>
+            <div className="eje" style={{ top: `${(1 - f) * 100}%` }}>{eje(tope * f)}</div>
           </div>
         ))}
         {semanas.map((s) => (
@@ -130,22 +134,22 @@ function PanelGerente({ token }) {
             <div className="kpi">
               <span>Ventas</span>
               <b>{enSolesEnteros(panel.ventas)}</b>
-              <small>{panel.variacion_ventas === null ? 'Sin periodo anterior' : `${panel.variacion_ventas > 0 ? '+' : ''}${panel.variacion_ventas} % frente al periodo anterior`}</small>
+              <small>{panel.variacion_ventas === null ? 'Sin periodo anterior' : `${panel.variacion_ventas > 0 ? '+' : ''}${enPorcentaje(panel.variacion_ventas)} frente al periodo anterior`}</small>
             </div>
             <div className="kpi">
               <span>Costo de insumos</span>
               <b>{enSolesEnteros(panel.costo_insumos)}</b>
-              <small>{panel.costo_porcentaje} % de las ventas</small>
+              <small>{enPorcentaje(panel.costo_porcentaje)} de las ventas</small>
             </div>
             <div className="kpi">
               <span>Merma</span>
               <b>{enSolesEnteros(panel.merma)}</b>
-              <small>{panel.merma_porcentaje} % de las ventas</small>
+              <small>{enPorcentaje(panel.merma_porcentaje)} de las ventas</small>
             </div>
             <div className="kpi">
               <span>Margen bruto</span>
               <b>{enSolesEnteros(panel.margen)}</b>
-              <small>{panel.margen_porcentaje} % de las ventas</small>
+              <small>{enPorcentaje(panel.margen_porcentaje)} de las ventas</small>
             </div>
           </section>
 
@@ -191,7 +195,7 @@ function PanelGerente({ token }) {
                   <div style={{ fontSize: 13.5, marginBottom: 4 }}>{nombreMotivo(m.motivo)}</div>
                   <div className="barra-h">
                     <div className="pista"><div className="relleno" style={{ width: `${m.porcentaje}%` }} /></div>
-                    <span className="valor">{m.porcentaje} %</span>
+                    <span className="valor">{enPorcentaje(m.porcentaje)}</span>
                   </div>
                 </div>
               ))}

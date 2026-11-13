@@ -5,7 +5,7 @@ export const ALERTAS_URL = `${DJANGO_URL}/api/catalogo/alertas/`;
 export const ROLES_CON_ALERTAS = ['ADMINISTRADOR', 'ALMACENERO'];
 
 // "2.100" → "2.1": la API manda los decimales como texto
-export const cantidad = (valor) => String(Number(valor));
+export const cantidad = (valor) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 3 }).format(Number(valor));
 
 // "2026-10-31" → "31/10", sin pasar por Date para que la zona horaria no cambie el día
 export const diaMes = (fecha) => fecha.split('-').reverse().slice(0, 2).join('/');

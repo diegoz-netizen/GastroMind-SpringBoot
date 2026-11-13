@@ -5,13 +5,16 @@ export const CATALOGO = `${DJANGO_URL}/api/catalogo`;
 export const API_SPRING = `${SPRING_URL}/api`;
 export const conToken = (token) => ({ headers: { Authorization: `Bearer ${token}` } });
 
-const soles = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const solesEnteros = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 0 });
-const numero = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 3 });
+// Coma decimal, como el prototipo (8,36 · 1,9 kg)
+const soles = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const solesEnteros = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 });
+const numero = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 3 });
 
 export const enSoles = (valor) => `S/ ${soles.format(valor ?? 0)}`;
 export const enSolesEnteros = (valor) => `S/ ${solesEnteros.format(valor ?? 0)}`;
 export const cantidadDe = (valor) => numero.format(valor ?? 0);
+// El litro se escribe con L mayúscula, como en el prototipo
+export const unidadDe = (u) => (u === 'l' ? 'L' : u);
 export const conSigno = (valor) => `${valor > 0 ? '+' : ''}${numero.format(valor)}`;
 
 // "MAL_MANEJO" → "Mal manejo"
@@ -44,7 +47,7 @@ export const periodoDelMes = () => {
 export const periodo = (dias) => (dias === 0 ? periodoDelMes() : ultimosDias(dias));
 
 // null → "—" (un platillo sin receta no tiene % de costo)
-export const enPorcentaje = (valor) => (valor === null || valor === undefined ? '—' : `${valor} %`);
+export const enPorcentaje = (valor) => (valor === null || valor === undefined ? '—' : `${numero.format(valor)} %`);
 
 export const fechaCorta =(texto) => texto.split('-').reverse().join('/');
 
