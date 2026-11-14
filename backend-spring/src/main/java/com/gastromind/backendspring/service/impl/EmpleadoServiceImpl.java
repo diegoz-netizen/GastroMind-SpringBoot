@@ -68,7 +68,7 @@ public class EmpleadoServiceImpl implements EmpleadoService {
 
         // 3. Validar correo duplicado (409)
         if (empleadoRepository.existsByCorreo(request.correo())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "El correo ya esta registrado");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El correo ya está registrado");
         }
 
         // 4. Buscar rol a asignar

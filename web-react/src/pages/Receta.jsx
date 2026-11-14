@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { DJANGO_URL } from '../config/api';
 import { useAuth } from '../context/AuthContext';
+import { enPorcentaje, unidadDe } from '../config/reportes';
 
 // La receta va en Django (catálogo), igual que la carta y los insumos
 const API_PRODUCTOS = `${DJANGO_URL}/api/catalogo/productos/`;
@@ -140,7 +141,7 @@ function Receta() {
     return insumo && Number(l.cantidad_requerida) > 0 ? Number(l.cantidad_requerida) * Number(insumo.costo_unitario) : 0;
   };
   const costoEstimado = lineas.reduce((total, l) => total + costoLinea(l), 0);
-  const porcentajeEstimado = platillo && Number(platillo.precio) > 0 ? Math.round((costoEstimado / Number(platillo.precio)) * 100) : null;
+  const porcentajeEstimado = platillo && Number(platillo.precio) > 0 ? Math.round((costoEstimado / Number(platillo.precio)) * 1000) / 10 : null;
 
   // Un insumo no se repite en la misma receta: en cada línea solo salen los que no usan las demás
   const insumosDisponibles = (indice) =>
@@ -180,7 +181,7 @@ function Receta() {
                   <div className="kpi">
                     <span>Costo guardado</span>
                     <b>{soles(platillo.costo)}</b>
-                    <small>{platillo.porcentaje_costo != null ? `${platillo.porcentaje_costo} % del precio` : '—'}</small>
+                    <small>{platillo.porcentaje_costo != null ? `${enPorcentaje(Number(platillo.porcentaje_costo))} del precio` : '—'}</small>
                   </div>
                   <div className="kpi oscuro">
                     <span>Margen</span>
@@ -241,10 +242,10 @@ function Receta() {
                                     <input className="entrada-mini" type="number" step="0.001" min="0.001" placeholder="0,000"
                                       value={linea.cantidad_requerida}
                                       onChange={(e) => cambiarLinea(indice, 'cantidad_requerida', e.target.value)} />
-                                    {' '}{insumo?.unidad_medida ?? ''}
+                                    {' '}{unidadDe(insumo?.unidad_medida ?? '')}
                                   </>
                                 ) : (
-                                  `${cantidad(linea.cantidad_requerida)} ${insumo?.unidad_medida ?? ''}`
+                                  `${cantidad(linea.cantidad_requerida)} ${unidadDe(insumo?.unidad_medida ?? '')}`
                                 )}
                               </td>
                               {esAdmin && <td className="num">{insumo ? soles(insumo.costo_unitario) : '—'}</td>}
@@ -274,7 +275,7 @@ function Receta() {
                 {esAdmin && (
                   <div className="costo-porcion">
                     <span>Costo por porción</span>
-                    <b>{soles(costoEstimado)}{porcentajeEstimado != null && <small> · {porcentajeEstimado} %</small>}</b>
+                    <b>{soles(costoEstimado)}{porcentajeEstimado != null && <small> · {enPorcentaje(porcentajeEstimado)}</small>}</b>
                   </div>
                 )}
 
