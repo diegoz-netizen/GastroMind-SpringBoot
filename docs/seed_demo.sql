@@ -296,6 +296,47 @@ JOIN categoria c ON c.restaurante_id = r.id
 JOIN producto pr ON pr.categoria_id = c.id AND pr.nombre = v.producto
 WHERE NOT EXISTS (SELECT 1 FROM pedido_detalle d WHERE d.pedido_id = p.id AND d.producto_id = pr.id);
 
+-- Historia de 8 semanas (14/11, recorrido de la demo): pedidos ya cerrados de la Sede Central, de 1 a 56 días
+-- atrás, para que el panel tenga periodo anterior, la sugerencia de compra (HU-21) tenga consumo que promediar y
+-- el teórico contra real (HU-20) compare volúmenes reales. Son fijos (no aleatorios), así la demo sale igual
+-- cada vez: 3 pedidos al día y uno más el viernes y el sábado, en las mesas 2, 4 a 8 (la 1 y la 3 son de arriba).
+-- El kardex de abajo los convierte en CONSUMO como a cualquier platillo servido.
+WITH central AS (
+    SELECT r.id AS restaurante_id, e.id AS mozo_id
+    FROM restaurante r JOIN empleado e ON e.correo = 'mozo.central@gastromind.demo'
+    WHERE r.nombre = 'GastroMind Demo - Sede Central'
+), turnos AS (
+    SELECT d, t, (date_trunc('day', NOW()) - d * INTERVAL '1 day' + h * INTERVAL '1 hour') AS fecha
+    FROM generate_series(1, 56) AS d
+    CROSS JOIN (VALUES (1, 13), (2, 14), (3, 20), (4, 21)) AS turno(t, h)
+    WHERE t < 4 OR EXTRACT(ISODOW FROM date_trunc('day', NOW()) - d * INTERVAL '1 day') IN (5, 6)
+), nuevos AS (
+    INSERT INTO pedido (mesa_id, empleado_id, estado, fecha_registro)
+    SELECT m.id, c.mozo_id, 'CERRADO', tu.fecha
+    FROM turnos tu
+    CROSS JOIN central c
+    JOIN mesa m ON m.restaurante_id = c.restaurante_id
+               AND m.numero = (ARRAY[2, 4, 5, 6, 7, 8])[1 + (tu.d + tu.t) % 6]
+    WHERE NOT EXISTS (SELECT 1 FROM pedido p JOIN mesa x ON x.id = p.mesa_id
+                      WHERE x.restaurante_id = c.restaurante_id AND p.fecha_registro < NOW() - INTERVAL '2 days')
+    RETURNING id, fecha_registro
+)
+INSERT INTO pedido_detalle (pedido_id, producto_id, cantidad, estado)
+SELECT n.id, pr.id, v.cantidad, 'SERVIDO'
+FROM nuevos n
+CROSS JOIN LATERAL (
+    SELECT EXTRACT(DOY FROM n.fecha_registro)::INT + EXTRACT(HOUR FROM n.fecha_registro)::INT AS k
+) s
+CROSS JOIN LATERAL (VALUES
+    ('Arroz con pollo',       1 + s.k % 2),
+    ('Lomo saltado',          1 + (s.k / 2) % 2),
+    ('Chicha morada (jarra)', s.k % 3)
+) AS v(producto, cantidad)
+JOIN restaurante r ON r.nombre = 'GastroMind Demo - Sede Central'
+JOIN categoria c ON c.restaurante_id = r.id
+JOIN producto pr ON pr.categoria_id = c.id AND pr.nombre = v.producto
+WHERE v.cantidad > 0;
+
 -- HU-17: mermas con los motivos globales del script.
 INSERT INTO registro_merma (empleado_id, ingrediente_id, cantidad, motivo_id, fecha_registro)
 SELECT e.id, i.id, v.cantidad, mm.id, NOW() - v.hace
