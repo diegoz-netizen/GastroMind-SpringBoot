@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../ui.css';
+import { Marca } from './Marca';
 
 // Módulos del prototipo; cada rol ve lo que puede usar
 const MODULOS = [
@@ -14,14 +15,25 @@ const MODULOS = [
   { ruta: '/mesas', texto: 'Mesas del salón', soloAdmin: true },
 ];
 
-// Menú hamburguesa: barra arriba y el menú como cajón, para que la página use todo el ancho
+const ESCRITORIO = '(min-width: 1024px)';
+
+// En computadora el menú queda fijo a la izquierda, como el prototipo final.
+// En el celular es un cajón con el botón hamburguesa, para que la página use todo el ancho.
 function Layout({ children }) {
   const { auth, logout } = useAuth();
   const { pathname } = useLocation();
   const [abierto, setAbierto] = useState(false);
+  const [escritorio, setEscritorio] = useState(() => window.matchMedia(ESCRITORIO).matches);
   const esAdmin = auth.rol?.toUpperCase() === 'ADMINISTRADOR';
   const modulos = MODULOS.filter((m) => esAdmin || !m.soloAdmin);
   const actual = modulos.find((m) => pathname.startsWith(m.ruta))?.texto;
+
+  useEffect(() => {
+    const consulta = window.matchMedia(ESCRITORIO);
+    const alCambiar = (e) => setEscritorio(e.matches);
+    consulta.addEventListener('change', alCambiar);
+    return () => consulta.removeEventListener('change', alCambiar);
+  }, []);
 
   // Se cierra al cambiar de página y con Escape
   useEffect(() => setAbierto(false), [pathname]);
@@ -48,10 +60,7 @@ function Layout({ children }) {
           </svg>
         </button>
         <div className="nav-marca">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7FC4A8" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <path d="M4 11h16a8 8 0 0 1-16 0z" />
-            <path d="M8 7c0-1.5 1-2 1-3.5M12 7c0-1.5 1-2 1-3.5M16 7c0-1.5 1-2 1-3.5" />
-          </svg>
+          <Marca />
           GastroMind
         </div>
         {actual && <span className="barra-modulo">{actual}</span>}
@@ -62,7 +71,11 @@ function Layout({ children }) {
       </header>
 
       {abierto && <div className="nav-fondo" onClick={() => setAbierto(false)} aria-hidden="true" />}
-      <nav id="menu-modulos" className={abierto ? 'nav abierto' : 'nav'} aria-label="Módulos" inert={!abierto}>
+      <nav id="menu-modulos" className={abierto ? 'nav abierto' : 'nav'} aria-label="Módulos" inert={!escritorio && !abierto}>
+        <div className="nav-cabeza">
+          <Marca />
+          GastroMind
+        </div>
         {modulos.map((m) => (
           <NavLink key={m.ruta} to={m.ruta} className={({ isActive }) => (isActive ? 'activo' : '')}>
             {m.texto}

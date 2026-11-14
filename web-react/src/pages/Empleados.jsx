@@ -15,7 +15,7 @@ function Empleados() {
   const [loading, setLoading] = useState(true);
   const [cambiandoId, setCambiandoId] = useState(null);
 
-  const { auth, logout } = useAuth();
+  const { auth } = useAuth();
   const navigate = useNavigate();
 
   const mensajeDeError = (err) => {
@@ -65,205 +65,88 @@ function Empleados() {
     }
   };
 
-  const cerrarSesion = () => {
-    logout();
-    navigate('/');
-  };
+  const activos = empleados.filter((e) => e.estado === 'ACTIVO').length;
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <div>
-            <h1 style={styles.title}>Personal del restaurante</h1>
-            <p style={styles.subtitle}>
-              {auth.nombreCompleto} · {auth.rol}
-            </p>
-          </div>
-          <div style={styles.headerButtons}>
-            <button onClick={() => navigate('/empleados/nuevo')} style={styles.registrarButton}>
-              Registrar empleado
-            </button>
-          </div>
+    <div className="pagina">
+      <div className="cabecera">
+        <div>
+          <h1>Personal</h1>
+          <p>{empleados.length} empleados · {activos} activos · solo el personal activo puede ingresar a la web y a las apps</p>
         </div>
+        <button type="button" className="boton primario" onClick={() => navigate('/empleados/nuevo')}>Registrar empleado</button>
+      </div>
 
-        {error && <p style={styles.error}>{error}</p>}
+      {error && <div className="aviso error">{error}</div>}
 
+      <div className="tarjeta sin-relleno">
         {loading ? (
-          <p style={styles.detail}>Cargando personal...</p>
-        ) : empleados.length === 0 && !error ? (
-          <p style={styles.detail}>No hay empleados registrados en tu restaurante.</p>
+          <p className="vacio con-margen">Cargando personal...</p>
+        ) : empleados.length === 0 ? (
+          !error && <p className="vacio con-margen">No hay empleados registrados en tu restaurante.</p>
         ) : (
-          empleados.length > 0 && (
-            <table style={styles.table}>
+          <div className="tabla-caja">
+            <table className="tabla tabla-panel">
               <thead>
                 <tr>
-                  <th style={styles.th}>Nombre</th>
-                  <th style={styles.th}>Correo</th>
-                  <th style={styles.th}>Rol</th>
-                  <th style={styles.th}>Estado</th>
-                  <th style={styles.th}></th>
+                  <th>Nombre</th>
+                  <th>Correo</th>
+                  <th>Rol</th>
+                  <th>App</th>
+                  <th>Acceso</th>
                 </tr>
               </thead>
               <tbody>
                 {empleados.map((empleado) => {
                   const activo = empleado.estado === 'ACTIVO';
+                  const esYo = empleado.correo === auth.correo;
                   return (
-                    <tr key={empleado.id}>
-                      <td style={styles.td}>{empleado.nombreCompleto}</td>
-                      <td style={styles.td}>{empleado.correo}</td>
-                      <td style={styles.td}>{empleado.rol}</td>
-                      <td style={styles.td}>
-                        <span style={activo ? styles.badgeActivo : styles.badgeInactivo}>
-                          {empleado.estado}
-                        </span>
-                      </td>
-                      <td style={styles.td}>
-                        <button
-                          onClick={() => cambiarEstado(empleado)}
-                          disabled={cambiandoId === empleado.id}
-                          style={{
-                            ...(activo ? styles.buttonDesactivar : styles.buttonActivar),
-                            ...(cambiandoId === empleado.id ? styles.buttonDisabled : {}),
-                          }}
-                        >
-                          {cambiandoId === empleado.id ? 'Guardando...' : activo ? 'Desactivar' : 'Activar'}
-                        </button>
+                    <tr key={empleado.id} className={activo ? undefined : 'apagada'}>
+                      <td className={activo ? 'fuerte' : undefined}>{empleado.nombreCompleto}</td>
+                      <td>{empleado.correo}</td>
+                      <td>{nombreRol(empleado.rol)}</td>
+                      <td>{appDe(empleado.rol)}</td>
+                      <td>
+                        {esYo ? (
+                          <span className="ayuda">Tu cuenta</span>
+                        ) : (
+                          // HU-03: el interruptor activa o desactiva el acceso (no se borra al empleado)
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={activo}
+                            aria-label={`Acceso de ${empleado.nombreCompleto}`}
+                            className={activo ? 'interruptor encendido' : 'interruptor'}
+                            disabled={cambiandoId === empleado.id}
+                            onClick={() => cambiarEstado(empleado)}
+                          >
+                            <span className="perilla" />
+                            <span className="interruptor-texto">{cambiandoId === empleado.id ? 'Guardando...' : activo ? 'Activo' : 'Inactivo'}</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-          )
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#F3F4F1',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    padding: '40px 20px',
-  },
-  card: {
-    maxWidth: '900px',
-    margin: '0 auto',
-    backgroundColor: '#ffffff',
-    padding: '32px',
-    borderRadius: '8px',
-    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.1)',
-    overflowX: 'auto',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '16px',
-    marginBottom: '20px',
-  },
-  headerButtons: {
-    display: 'flex',
-    gap: '8px',
-  },
-  registrarButton: {
-    padding: '8px 14px',
-    fontSize: '14px',
-    backgroundColor: '#1D5B47',
-    color: '#ffffff',
-    border: '1px solid #1D5B47',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  title: {
-    margin: '0 0 8px 0',
-    fontSize: '24px',
-    color: '#1D5B47',
-  },
-  subtitle: {
-    margin: 0,
-    fontSize: '15px',
-    color: '#5f6368',
-  },
-  detail: {
-    margin: '6px 0',
-    fontSize: '14px',
-    color: '#3c4043',
-  },
-  error: {
-    margin: '0 0 16px 0',
-    padding: '10px 12px',
-    backgroundColor: '#fce8e6',
-    color: '#d93025',
-    borderRadius: '4px',
-    fontSize: '14px',
-    border: '1px solid #f5c6cb',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '14px',
-  },
-  th: {
-    textAlign: 'left',
-    padding: '10px 8px',
-    borderBottom: '2px solid #dadce0',
-    color: '#5f6368',
-    fontWeight: '500',
-  },
-  td: {
-    padding: '10px 8px',
-    borderBottom: '1px solid #f1f3f4',
-    color: '#3c4043',
-  },
-  badgeActivo: {
-    padding: '2px 8px',
-    borderRadius: '12px',
-    backgroundColor: '#e6f4ea',
-    color: '#137333',
-    fontSize: '12px',
-  },
-  badgeInactivo: {
-    padding: '2px 8px',
-    borderRadius: '12px',
-    backgroundColor: '#f1f3f4',
-    color: '#5f6368',
-    fontSize: '12px',
-  },
-  buttonDesactivar: {
-    padding: '6px 12px',
-    fontSize: '13px',
-    backgroundColor: '#ffffff',
-    color: '#d93025',
-    border: '1px solid #d93025',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  buttonActivar: {
-    padding: '6px 12px',
-    fontSize: '13px',
-    backgroundColor: '#1D5B47',
-    color: '#ffffff',
-    border: '1px solid #1D5B47',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-  logoutButton: {
-    padding: '8px 14px',
-    fontSize: '14px',
-    backgroundColor: '#ffffff',
-    color: '#d93025',
-    border: '1px solid #d93025',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
+// "ADMINISTRADOR" → "Administrador"
+const nombreRol = (rol = '') => rol.charAt(0) + rol.slice(1).toLowerCase();
+
+// Desde dónde trabaja cada rol, como en el prototipo
+const appDe = (rol = '') => {
+  switch (rol.toUpperCase()) {
+    case 'ADMINISTRADOR': return 'Web';
+    case 'COCINERO': return 'Kotlin · pantalla de cocina';
+    default: return 'Kotlin · PIN';
+  }
 };
 
 export default Empleados;

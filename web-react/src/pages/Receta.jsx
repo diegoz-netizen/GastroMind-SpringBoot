@@ -12,7 +12,7 @@ const conToken = (token) => ({ headers: { Authorization: `Bearer ${token}` } });
 
 const LINEA_VACIA = { ingrediente: '', cantidad_requerida: '' };
 
-const soles = (monto) => `S/ ${Number(monto).toFixed(2)}`;
+const soles = (monto) => `S/ ${Number(monto).toFixed(2).replace('.', ',')}`;
 
 // HU-06: el gerente arma la receta (BOM) de un platillo: qué insumos lleva y cuánto de cada uno
 function Receta() {
@@ -26,7 +26,7 @@ function Receta() {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
-  const { auth, logout } = useAuth();
+  const { auth } = useAuth();
   const navigate = useNavigate();
   const esAdmin = auth.rol?.toUpperCase() === 'ADMINISTRADOR';
 
@@ -134,17 +134,13 @@ function Receta() {
     }
   };
 
-  const cerrarSesion = () => {
-    logout();
-    navigate('/');
-  };
-
   // Vista previa del costo con lo que está en pantalla; el oficial es el que calcula la API al guardar (HU-08)
   const costoLinea = (l) => {
     const insumo = insumoDe(l.ingrediente);
     return insumo && Number(l.cantidad_requerida) > 0 ? Number(l.cantidad_requerida) * Number(insumo.costo_unitario) : 0;
   };
   const costoEstimado = lineas.reduce((total, l) => total + costoLinea(l), 0);
+  const porcentajeEstimado = platillo && Number(platillo.precio) > 0 ? Math.round((costoEstimado / Number(platillo.precio)) * 100) : null;
 
   // Un insumo no se repite en la misma receta: en cada línea solo salen los que no usan las demás
   const insumosDisponibles = (indice) =>
@@ -155,69 +151,71 @@ function Receta() {
   const editable = esAdmin && platillo?.requiere_receta;
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <div>
-            <h1 style={styles.title}>Receta{platillo ? `: ${platillo.nombre}` : ''}</h1>
-            <p style={styles.subtitle}>
-              {auth.nombreCompleto} · {auth.rol}
-            </p>
-          </div>
-          <div style={styles.headerButtons}>
-            <button onClick={() => navigate('/carta')} style={styles.secondaryButton}>
-              Volver a la carta
-            </button>
-          </div>
+    <div className="pagina">
+      <div className="cabecera">
+        <div>
+          <h1>Receta{platillo ? ` · ${platillo.nombre}` : ''}</h1>
+          <p>Cantidades por porción. El costo se recalcula al guardar.</p>
         </div>
+        <button type="button" className="boton" onClick={() => navigate('/carta')}>Volver a la carta</button>
+      </div>
 
-        {error && <p style={styles.error}>{error}</p>}
-        {exito && <p style={styles.success}>{exito}</p>}
+      {error && <div className="aviso error">{error}</div>}
+      {exito && <div className="aviso ok">{exito}</div>}
 
-        {loading ? (
-          <p style={styles.detail}>Cargando receta...</p>
-        ) : (
-          platillo && (
-            <>
-              <div style={styles.resumen}>
-                <span>
-                  {platillo.categoria_nombre} · Precio <strong>{soles(platillo.precio)}</strong>
-                </span>
-                {/* Review 2: el costo y el margen solo los ve el admin (la API ni los manda a los demás roles) */}
-                {esAdmin && platillo.costo != null && (
-                  <span>
-                    Costo guardado <strong>{soles(platillo.costo)}</strong> · Margen{' '}
-                    <strong style={Number(platillo.margen) < 0 ? styles.margenNegativo : undefined}>
-                      {soles(platillo.margen)}
-                    </strong>
-                    {platillo.porcentaje_costo != null && ` (${platillo.porcentaje_costo} % en insumos)`}
-                  </span>
-                )}
+      {loading ? (
+        <p className="vacio">Cargando receta...</p>
+      ) : (
+        platillo && (
+          <>
+            <div className="kpis">
+              <div className="kpi">
+                <span>Precio · {platillo.categoria_nombre}</span>
+                <b>{soles(platillo.precio)}</b>
+                <small>{platillo.estado === 'ACTIVO' ? 'En la carta' : 'Fuera de la carta'}</small>
               </div>
+              {/* Review 2: el costo y el margen solo los ve el admin (la API ni los manda a los demás roles) */}
+              {esAdmin && platillo.costo != null && (
+                <>
+                  <div className="kpi">
+                    <span>Costo guardado</span>
+                    <b>{soles(platillo.costo)}</b>
+                    <small>{platillo.porcentaje_costo != null ? `${platillo.porcentaje_costo} % del precio` : '—'}</small>
+                  </div>
+                  <div className="kpi oscuro">
+                    <span>Margen</span>
+                    <b className={Number(platillo.margen) < 0 ? 'texto-rojo' : undefined}>{soles(platillo.margen)}</b>
+                    <small>por cada porción vendida</small>
+                  </div>
+                </>
+              )}
+            </div>
 
-              {!platillo.requiere_receta ? (
-                <p style={styles.detail}>
-                  Este platillo no lleva receta (no descuenta insumos). Si debería llevarla, márcalo como
-                  "Lleva receta" en la carta.
-                </p>
-              ) : insumos.length === 0 ? (
-                <p style={styles.detail}>Tu restaurante no tiene insumos todavía; primero hay que registrarlos.</p>
-              ) : (
-                <form onSubmit={guardar} noValidate>
-                  {lineas.length === 0 ? (
-                    <p style={styles.faltaReceta}>
-                      {editable ? 'El platillo todavía no tiene receta. Agrega sus insumos.' : 'El platillo todavía no tiene receta.'}
-                    </p>
-                  ) : (
-                    <table style={styles.table}>
+            {!platillo.requiere_receta ? (
+              <div className="aviso info">
+                Este platillo no lleva receta (no descuenta insumos). Si debería llevarla, márcalo como «Lleva receta» en la carta.
+              </div>
+            ) : insumos.length === 0 ? (
+              <div className="aviso info">Tu restaurante no tiene insumos todavía; primero hay que registrarlos.</div>
+            ) : (
+              <form className="tarjeta receta" onSubmit={guardar} noValidate>
+                <div className="titulo-tarjeta">
+                  <h2>Insumos de la receta</h2>
+                </div>
+                {lineas.length === 0 ? (
+                  <p className="texto-ambar fuerte">
+                    {editable ? 'El platillo todavía no tiene receta. Agrega sus insumos.' : 'El platillo todavía no tiene receta.'}
+                  </p>
+                ) : (
+                  <div className="tabla-caja">
+                    <table className="tabla">
                       <thead>
                         <tr>
-                          <th style={styles.th}>Insumo</th>
-                          <th style={styles.thNum}>Cantidad</th>
-                          <th style={styles.th}>Unidad</th>
-                          {esAdmin && <th style={styles.thNum}>Costo unitario</th>}
-                          {esAdmin && <th style={styles.thNum}>Subtotal</th>}
-                          {editable && <th style={styles.th}></th>}
+                          <th>Insumo</th>
+                          <th className="num">Cantidad</th>
+                          {esAdmin && <th className="num">Costo unitario</th>}
+                          {esAdmin && <th className="num">Subtotal</th>}
+                          {editable && <th></th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -225,279 +223,80 @@ function Receta() {
                           const insumo = insumoDe(linea.ingrediente);
                           return (
                             <tr key={indice}>
-                              <td style={styles.td}>
+                              <td>
                                 {editable ? (
-                                  <select value={linea.ingrediente}
-                                    onChange={(e) => cambiarLinea(indice, 'ingrediente', e.target.value)}
-                                    style={styles.input}>
-                                    <option value="">Elige un insumo</option>
-                                    {insumosDisponibles(indice).map((i) => (
-                                      <option key={i.id} value={i.id}>
-                                        {i.nombre}
-                                      </option>
-                                    ))}
+                                  <select className="entrada" value={linea.ingrediente}
+                                    onChange={(e) => cambiarLinea(indice, 'ingrediente', e.target.value)}>
+                                    <option value="">Elegir insumo</option>
+                                    {insumosDisponibles(indice).map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
                                   </select>
                                 ) : (
                                   insumo?.nombre
                                 )}
-                                {erroresLinea[indice] && <span style={styles.fieldError}>{erroresLinea[indice]}</span>}
+                                {erroresLinea[indice] && <span className="error-campo bloque">{erroresLinea[indice]}</span>}
                               </td>
-                              <td style={styles.tdNum}>
+                              <td className="num">
                                 {editable ? (
-                                  <input type="number" step="0.001" min="0.001" value={linea.cantidad_requerida}
-                                    onChange={(e) => cambiarLinea(indice, 'cantidad_requerida', e.target.value)}
-                                    style={{ ...styles.input, ...styles.inputCantidad }} />
+                                  <>
+                                    <input className="entrada-mini" type="number" step="0.001" min="0.001" placeholder="0,000"
+                                      value={linea.cantidad_requerida}
+                                      onChange={(e) => cambiarLinea(indice, 'cantidad_requerida', e.target.value)} />
+                                    {' '}{insumo?.unidad_medida ?? ''}
+                                  </>
                                 ) : (
-                                  Number(linea.cantidad_requerida)
+                                  `${cantidad(linea.cantidad_requerida)} ${insumo?.unidad_medida ?? ''}`
                                 )}
                               </td>
-                              <td style={styles.td}>{insumo?.unidad_medida ?? '—'}</td>
-                              {esAdmin && <td style={styles.tdNum}>{insumo ? soles(insumo.costo_unitario) : '—'}</td>}
-                              {esAdmin && <td style={styles.tdNum}>{insumo ? soles(costoLinea(linea)) : '—'}</td>}
+                              {esAdmin && <td className="num">{insumo ? soles(insumo.costo_unitario) : '—'}</td>}
+                              {esAdmin && <td className="num">{insumo ? cifra(costoLinea(linea)) : '—'}</td>}
                               {editable && (
-                                <td style={styles.tdAcciones}>
-                                  <button type="button" onClick={() => quitarLinea(indice)} style={styles.dangerLink}>
-                                    Quitar
-                                  </button>
+                                <td className="acciones">
+                                  <button type="button" className="enlace peligro" onClick={() => quitarLinea(indice)}>Quitar</button>
                                 </td>
                               )}
                             </tr>
                           );
                         })}
                       </tbody>
-                      {esAdmin && (
-                      <tfoot>
-                        <tr>
-                          <td style={styles.tdTotal} colSpan={4}>
-                            Costo estimado con esta receta
-                          </td>
-                          <td style={{ ...styles.tdNum, ...styles.tdTotal }}>{soles(costoEstimado)}</td>
-                          {editable && <td style={styles.tdTotal}></td>}
-                        </tr>
-                      </tfoot>
-                      )}
                     </table>
-                  )}
+                  </div>
+                )}
 
-                  {editable && (
-                    <div style={styles.formButtons}>
-                      <button type="button" onClick={agregarLinea}
-                        disabled={lineas.length >= insumos.length} style={styles.secondaryButton}>
-                        + Agregar insumo
-                      </button>
-                      <button type="submit" disabled={guardando}
-                        style={{ ...styles.primaryButton, ...(guardando ? styles.buttonDisabled : {}) }}>
-                        {guardando ? 'Guardando...' : 'Guardar receta'}
-                      </button>
-                      <button type="button" onClick={descartarCambios} style={styles.linkButton}>
-                        Descartar cambios
-                      </button>
-                    </div>
-                  )}
-                </form>
-              )}
-            </>
-          )
-        )}
-      </div>
+                {editable && (
+                  <div className="fila-acciones">
+                    <button type="button" className="boton" onClick={agregarLinea} disabled={lineas.length >= insumos.length}>
+                      Agregar insumo
+                    </button>
+                    <span className="ayuda">Un insumo que ya está en la receta no se puede agregar dos veces.</span>
+                  </div>
+                )}
+
+                {esAdmin && (
+                  <div className="costo-porcion">
+                    <span>Costo por porción</span>
+                    <b>{soles(costoEstimado)}{porcentajeEstimado != null && <small> · {porcentajeEstimado} %</small>}</b>
+                  </div>
+                )}
+
+                {editable && (
+                  <div className="fila-acciones">
+                    <button type="submit" className="boton primario ancho" disabled={guardando}>
+                      {guardando ? 'Guardando...' : 'Guardar receta'}
+                    </button>
+                    <button type="button" className="enlace" onClick={descartarCambios}>Descartar cambios</button>
+                  </div>
+                )}
+              </form>
+            )}
+          </>
+        )
+      )}
     </div>
   );
 }
 
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#F3F4F1',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    padding: '40px 20px',
-  },
-  card: {
-    maxWidth: '1040px',
-    margin: '0 auto',
-    backgroundColor: '#ffffff',
-    padding: '32px',
-    borderRadius: '8px',
-    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.1)',
-    overflowX: 'auto',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '16px',
-    marginBottom: '20px',
-  },
-  headerButtons: {
-    display: 'flex',
-    gap: '8px',
-  },
-  title: {
-    margin: '0 0 8px 0',
-    fontSize: '24px',
-    color: '#1D5B47',
-  },
-  subtitle: {
-    margin: 0,
-    fontSize: '15px',
-    color: '#5f6368',
-  },
-  resumen: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: '8px',
-    marginBottom: '16px',
-    padding: '12px 16px',
-    backgroundColor: '#f8f9fa',
-    border: '1px solid #dadce0',
-    borderRadius: '6px',
-    fontSize: '14px',
-    color: '#3c4043',
-  },
-  detail: {
-    margin: '6px 0',
-    fontSize: '14px',
-    color: '#3c4043',
-  },
-  error: {
-    margin: '0 0 16px 0',
-    padding: '10px 12px',
-    backgroundColor: '#fce8e6',
-    color: '#d93025',
-    borderRadius: '4px',
-    fontSize: '14px',
-    border: '1px solid #f5c6cb',
-  },
-  success: {
-    margin: '0 0 16px 0',
-    padding: '10px 12px',
-    backgroundColor: '#e6f4ea',
-    color: '#137333',
-    borderRadius: '4px',
-    fontSize: '14px',
-    border: '1px solid #ceead6',
-  },
-  formButtons: {
-    display: 'flex',
-    gap: '8px',
-    marginTop: '16px',
-  },
-  input: {
-    padding: '8px 10px',
-    fontSize: '14px',
-    border: '1px solid #dadce0',
-    borderRadius: '4px',
-    backgroundColor: '#ffffff',
-  },
-  inputCantidad: {
-    width: '110px',
-    textAlign: 'right',
-  },
-  fieldError: {
-    display: 'block',
-    marginTop: '4px',
-    fontSize: '12px',
-    color: '#d93025',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '14px',
-  },
-  th: {
-    textAlign: 'left',
-    padding: '10px 8px',
-    borderBottom: '2px solid #dadce0',
-    color: '#5f6368',
-    fontWeight: '500',
-  },
-  thNum: {
-    textAlign: 'right',
-    padding: '10px 8px',
-    borderBottom: '2px solid #dadce0',
-    color: '#5f6368',
-    fontWeight: '500',
-  },
-  td: {
-    padding: '10px 8px',
-    borderBottom: '1px solid #f1f3f4',
-    color: '#3c4043',
-  },
-  tdNum: {
-    padding: '10px 8px',
-    borderBottom: '1px solid #f1f3f4',
-    color: '#3c4043',
-    textAlign: 'right',
-    fontVariantNumeric: 'tabular-nums',
-    whiteSpace: 'nowrap',
-  },
-  tdAcciones: {
-    padding: '10px 8px',
-    borderBottom: '1px solid #f1f3f4',
-    whiteSpace: 'nowrap',
-    textAlign: 'right',
-  },
-  tdTotal: {
-    padding: '10px 8px',
-    fontWeight: '500',
-    color: '#3c4043',
-  },
-  margenNegativo: {
-    color: '#d93025',
-  },
-  faltaReceta: {
-    color: '#b06000',
-    fontWeight: '500',
-    fontSize: '14px',
-  },
-  primaryButton: {
-    padding: '10px 24px',
-    fontSize: '14px',
-    fontWeight: '500',
-    backgroundColor: '#1D5B47',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  secondaryButton: {
-    padding: '8px 14px',
-    fontSize: '14px',
-    backgroundColor: '#ffffff',
-    color: '#1D5B47',
-    border: '1px solid #1D5B47',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  linkButton: {
-    padding: '4px 8px',
-    fontSize: '13px',
-    backgroundColor: 'transparent',
-    color: '#1D5B47',
-    border: 'none',
-    cursor: 'pointer',
-  },
-  dangerLink: {
-    padding: '4px 8px',
-    fontSize: '13px',
-    backgroundColor: 'transparent',
-    color: '#d93025',
-    border: 'none',
-    cursor: 'pointer',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-  logoutButton: {
-    padding: '8px 14px',
-    fontSize: '14px',
-    backgroundColor: '#ffffff',
-    color: '#d93025',
-    border: '1px solid #d93025',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-};
+// "0.220" → "0,220" y "8.36" → "8,36", como el prototipo
+const cantidad = (valor) => Number(valor).toFixed(3).replace('.', ',');
+const cifra = (valor) => Number(valor).toFixed(2).replace('.', ',');
 
 export default Receta;

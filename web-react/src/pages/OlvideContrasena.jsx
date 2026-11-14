@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { LadoIngreso } from '../components/Marca';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { SPRING_URL } from '../config/api';
-import { styles } from './recuperacionStyles';
 
 // HU-04: pedir el enlace de recuperación. El backend responde igual exista o no el correo.
 const API_URL = `${SPRING_URL}/api/auth/recuperar`;
@@ -43,14 +43,14 @@ function OlvideContrasena() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>GastroMind</h1>
-        <h2 style={styles.subtitle}>Recuperar contraseña</h2>
+    <div className="ingreso">
+      <LadoIngreso />
+      <div className="ingreso-tarjeta">
+        <h2 className="ingreso-titulo">Recuperar contraseña</h2>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.field}>
-            <label htmlFor="correo" style={styles.label}>
+        <form onSubmit={handleSubmit} className="ingreso-form">
+          <div className="campo">
+            <label htmlFor="correo" className="campo-etiqueta">
               Correo electrónico
             </label>
             <input
@@ -59,24 +59,23 @@ function OlvideContrasena() {
               placeholder="ejemplo@gastromind.com"
               value={correo}
               onChange={(e) => setCorreo(e.target.value)}
-              style={styles.input}
               autoComplete="email"
             />
           </div>
 
-          {error && <p style={styles.error}>{error}</p>}
-          {mensaje && <p style={styles.success}>{mensaje}</p>}
+          {error && <p className="aviso error">{error}</p>}
+          {mensaje && <p className="aviso ok">{mensaje}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            style={{ ...styles.button, ...(loading ? styles.buttonDisabled : {}) }}
+            className="boton primario ancho"
           >
             {loading ? 'Enviando...' : 'Enviar enlace'}
           </button>
         </form>
 
-        <Link to="/" style={styles.link}>
+        <Link to="/" className="enlace ingreso-enlace">
           Volver a iniciar sesión
         </Link>
       </div>
