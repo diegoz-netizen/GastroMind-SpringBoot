@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { DJANGO_URL } from '../config/api';
 import { useAuth } from '../context/AuthContext';
+import { enPorcentaje } from '../config/reportes';
 
 // La carta va en Django (catálogo); el token es el mismo que entrega el login de Spring
 const API_PRODUCTOS = `${DJANGO_URL}/api/catalogo/productos/`;
@@ -296,7 +297,7 @@ function Carta() {
                       </td>
                       <td className="num">{soles(platillo.precio)}</td>
                       {esAdmin && <td className="num">{sinCosto ? '—' : soles(platillo.costo)}</td>}
-                      {esAdmin && <td className="num">{sinCosto || platillo.porcentaje_costo == null ? '—' : `${Math.round(platillo.porcentaje_costo)} %`}</td>}
+                      {esAdmin && <td className="num">{sinCosto || platillo.porcentaje_costo == null ? '—' : enPorcentaje(Number(platillo.porcentaje_costo))}</td>}
                       {esAdmin && (
                         <td className={Number(platillo.margen) < 0 ? 'num texto-rojo' : 'num'}>{sinCosto ? '—' : soles(platillo.margen)}</td>
                       )}

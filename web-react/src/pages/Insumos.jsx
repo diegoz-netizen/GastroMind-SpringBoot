@@ -4,6 +4,7 @@ import { DJANGO_URL } from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { ALERTAS_URL, cuandoVence, diaMes } from '../config/alertas';
 import ClasificarInsumo from '../components/ClasificarInsumo';
+import { unidadDe } from '../config/reportes';
 
 // El catálogo va en Django; el token es el mismo que entrega el login de Spring
 const API_URL = `${DJANGO_URL}/api/catalogo/insumos/`;
@@ -162,7 +163,7 @@ function Insumos() {
               </label>
               <label className="campo">Unidad de medida *
                 <select name="unidad_medida" value={form.unidad_medida} onChange={cambiar}>
-                  {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
+                  {UNIDADES.map((u) => <option key={u} value={u}>{unidadDe(u)}</option>)}
                 </select>
                 {errorDe('unidad_medida')}
               </label>
@@ -228,7 +229,7 @@ function Insumos() {
               <tbody>
                 {insumos.map((insumo) => {
                   const lote = lotePorInsumo[insumo.nombre];
-                  const unidad = insumo.unidad_medida;
+                  const unidad = unidadDe(insumo.unidad_medida);
                   return (
                     <tr key={insumo.id}>
                       <td>
