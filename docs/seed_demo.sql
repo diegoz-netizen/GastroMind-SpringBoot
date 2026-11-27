@@ -1,7 +1,8 @@
 -- ============================================================
 -- GASTROMIND — Datos semilla de DEMO (HU-02 Login, HU-05 Insumos, HU-06 Carta y recetas,
 -- datos de prueba por rol y de HU-07, y del Sprint 3: mesas, proveedores, compras con
--- vencimiento, pedidos, mermas y el kardex de cada insumo)
+-- vencimiento, pedidos, mermas y el kardex de cada insumo). Es la semilla de los tres
+-- programas: Spring y Django leen esta misma base, y la app Kotlin la ve a traves de sus APIs.
 -- Ejecutar DESPUES de script_database.sql (los roles ya existen ahi,
 -- por eso NO se reinsertan; se referencian por nombre).
 --
@@ -350,6 +351,81 @@ JOIN empleado e ON e.correo = v.correo
 JOIN ingrediente i ON i.restaurante_id = r.id AND i.nombre = v.insumo
 JOIN motivo_merma mm ON mm.nombre = v.motivo AND mm.es_global
 WHERE NOT EXISTS (SELECT 1 FROM registro_merma x WHERE x.ingrediente_id = i.id AND x.motivo_id = mm.id AND x.empleado_id = e.id);
+
+-- ============================================================
+-- Semilla final (27/11): historia de compras y mermas de 8 semanas y conteos físicos,
+-- para que todos los reportes de los tres programas tengan datos reales sin cargar nada a mano:
+--   * HU-14 / HU-15: el kardex muestra ingresos semanales, no solo un saldo inicial.
+--   * HU-19: el % de merma por periodo, insumo y motivo compara semanas.
+--   * HU-20 / HU-30: teórico contra real ya tiene un conteo físico (antes había que contarlo en el celular).
+-- Las compras históricas no tienen vencimiento (ya se consumieron): así la alerta de vencimiento (HU-16)
+-- sigue mostrando solo los lotes de arriba. El stock_actual no cambia: el kardex de abajo recalcula el
+-- saldo inicial. Se puede correr de nuevo: cada INSERT revisa que el dato no exista.
+-- ============================================================
+
+-- HU-14: compras de las últimas 8 semanas en la Sede Central (una por semana y por insumo; el arroz cada 2).
+INSERT INTO registro_ingreso_proveedor
+    (empleado_id, proveedor_id, ingrediente_id, lote, fecha_vencimiento, cantidad_recibida, costo_total, fecha_registro)
+SELECT e.id, p.id, i.id, 'H' || LPAD(s.semana::TEXT, 2, '0') || '-' || v.codigo, NULL,
+       v.cantidad, ROUND(v.cantidad * v.precio, 2),
+       date_trunc('day', NOW()) - make_interval(days => s.semana * 7 + v.dia) + TIME '08:30'
+FROM (VALUES
+    ('Avícola Santa Rosa',            'Pollo',         'AV',  7.000, 11.20, 0, 1),
+    ('Mercado Mayorista - Puesto 14', 'Arroz',         'AR', 20.000,  3.70, 1, 2),
+    ('Mercado Mayorista - Puesto 14', 'Tomate',        'TO',  3.000,  4.30, 1, 1),
+    ('Carnes del Valle',              'Lomo de res',   'CV',  6.000, 37.50, 2, 1),
+    ('Mercado Mayorista - Puesto 14', 'Papa amarilla', 'PA', 10.000,  2.60, 1, 1),
+    ('Mercado Mayorista - Puesto 14', 'Cebolla roja',  'CE',  5.000,  3.00, 1, 1),
+    ('Mercado Mayorista - Puesto 14', 'Ají amarillo',  'AJ',  1.000, 11.50, 3, 2)
+) AS v(proveedor, insumo, codigo, cantidad, precio, dia, cada)
+CROSS JOIN generate_series(1, 8) AS s(semana)
+JOIN restaurante r ON r.nombre = 'GastroMind Demo - Sede Central'
+JOIN empleado e ON e.correo = 'almacen.central@gastromind.demo'
+JOIN proveedor p ON p.restaurante_id = r.id AND p.nombre = v.proveedor
+JOIN ingrediente i ON i.restaurante_id = r.id AND i.nombre = v.insumo
+WHERE s.semana % v.cada = 0
+  AND NOT EXISTS (SELECT 1 FROM registro_ingreso_proveedor x
+                  WHERE x.ingrediente_id = i.id AND x.lote = 'H' || LPAD(s.semana::TEXT, 2, '0') || '-' || v.codigo);
+
+-- HU-17 / HU-19: mermas de las últimas 8 semanas en la Sede Central, con motivos variados.
+INSERT INTO registro_merma (empleado_id, ingrediente_id, cantidad, motivo_id, fecha_registro)
+SELECT e.id, i.id, v.cantidad, mm.id, date_trunc('day', NOW()) - make_interval(days => v.dias) + TIME '21:30'
+FROM (VALUES
+    ('almacen.central@gastromind.demo', 'Tomate',        0.400, 'VENCIDO',    52),
+    ('cocina.central@gastromind.demo',  'Pollo',         0.250, 'QUEMADO',    47),
+    ('cocina.central@gastromind.demo',  'Aceite vegetal',0.300, 'DERRAMADO',  41),
+    ('almacen.central@gastromind.demo', 'Papa amarilla', 0.800, 'VENCIDO',    38),
+    ('cocina.central@gastromind.demo',  'Lomo de res',   0.200, 'MAL_MANEJO', 33),
+    ('cocina.central@gastromind.demo',  'Arroz',         0.500, 'QUEMADO',    27),
+    ('almacen.central@gastromind.demo', 'Cebolla roja',  0.600, 'VENCIDO',    24),
+    ('cocina.central@gastromind.demo',  'Pollo',         0.250, 'QUEMADO',    19),
+    ('almacen.central@gastromind.demo', 'Tomate',        0.500, 'VENCIDO',    15),
+    ('cocina.central@gastromind.demo',  'Aceite vegetal',0.200, 'DERRAMADO',  11),
+    ('cocina.central@gastromind.demo',  'Lomo de res',   0.250, 'QUEMADO',     6),
+    ('almacen.central@gastromind.demo', 'Papa amarilla', 0.600, 'VENCIDO',     3)
+) AS v(correo, insumo, cantidad, motivo, dias)
+JOIN restaurante r ON r.nombre = 'GastroMind Demo - Sede Central'
+JOIN empleado e ON e.correo = v.correo
+JOIN ingrediente i ON i.restaurante_id = r.id AND i.nombre = v.insumo
+JOIN motivo_merma mm ON mm.nombre = v.motivo AND mm.es_global
+WHERE NOT EXISTS (SELECT 1 FROM registro_merma x
+                  WHERE x.ingrediente_id = i.id AND x.motivo_id = mm.id
+                    AND x.fecha_registro::date = (date_trunc('day', NOW()) - make_interval(days => v.dias))::date);
+
+-- HU-30: conteo físico de hoy en la Sede Central. El stock del sistema es el actual (el conteo no
+-- mueve el stock); lo que falta se suma al consumo real en teórico contra real (HU-20).
+INSERT INTO conteo_ciclico (empleado_id, ingrediente_id, cantidad_fisica_contada, stock_sistema, fecha_registro)
+SELECT e.id, i.id, i.stock_actual - v.faltante, i.stock_actual, NOW() - INTERVAL '10 minutes'
+FROM (VALUES
+    ('Arroz',       1.000),   -- faltó 1 kg: se resalta en teórico contra real
+    ('Tomate',      0.300),   -- faltaron 300 g
+    ('Pollo',       0.000),   -- cuadra
+    ('Lomo de res', 0.000)    -- cuadra
+) AS v(insumo, faltante)
+JOIN restaurante r ON r.nombre = 'GastroMind Demo - Sede Central'
+JOIN empleado e ON e.correo = 'almacen.central@gastromind.demo'
+JOIN ingrediente i ON i.restaurante_id = r.id AND i.nombre = v.insumo
+WHERE NOT EXISTS (SELECT 1 FROM conteo_ciclico x WHERE x.ingrediente_id = i.id);
 
 -- HU-15: kardex de la demo. Movimientos de cada compra, de cada platillo servido (receta x cantidad,
 -- lo registra el cocinero de la sede) y de cada merma, más un saldo inicial (AJUSTE) que hace que la
