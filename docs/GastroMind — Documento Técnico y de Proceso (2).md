@@ -193,7 +193,7 @@ Desde el **12/10/2026** (Sprint 2), por sugerencia del docente, el proyecto usa 
 GastroMind/ (repo principal)
 ├── backend-spring/      (Spring Boot — módulo operativo)
 ├── web-react/           (Web Admin + alternativa web operativa)
-├── docs/                (script SQL, datos semilla, ensayo de la demo, documentos)
+├── docs/                (script SQL, seed de demo y documentos)
 └── .github/workflows/   (CI: tests del backend, lint y build del frontend)
 ```
 
