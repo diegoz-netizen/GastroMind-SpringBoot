@@ -129,7 +129,7 @@ r=$(req POST /api/auth/login-pin - '{"correo":"mozo.central@gastromind.demo","pi
 r=$(req GET /api/mesas "$MOZO_TOKEN"); check "mozo ve las mesas" 200 "${r%%|*}"
 MESA=$(echo "${r#*|}" | campo "next(m['id'] for m in d if m['estado']=='LIBRE')")
 NUM=$(echo "${r#*|}" | campo "d[0]['numero']")
-r=$(req POST /api/mesas "$ADMIN" "{\"numero\":$NUM,\"capacidad\":4,\"zona\":\"Salón\"}"); check "mesa con número repetido" 409 "${r%%|*}"
+r=$(req POST /api/mesas "$ADMIN" "{\"numero\":$NUM,\"capacidad\":4,\"zona\":\"Terraza\"}"); check "mesa con número repetido" 409 "${r%%|*}"
 
 echo "Paso 10 · Pedido de punta a punta (HU-09 a HU-13 y HU-18)"
 stock() { reqd GET /insumos/ "$ADMIN" | cut -d'|' -f2- | campo "next(i['stock_actual'] for i in d if i['nombre']=='$1')"; }
