@@ -96,13 +96,7 @@ docker compose logs -f spring
    ```
    Debe devolver la lista de insumos del restaurante. Sin el token, Django responde `401`. Si responde `401` con un token recién emitido, `JWT_SECRET` no es el mismo en los dos servicios.
 4. **Web:** abrir <http://localhost:5173>, entrar con el administrador de demo y ver Insumos, Carta y Reportes.
-5. **Ensayo completo por HTTP:** con todo arriba y la base recién cargada, correr
-
-   ```bash
-   bash docs/ensayo_demo.sh
-   ```
-
-   Recorre los Sprints 1 a 4 en 12 pasos (64 comprobaciones): personal y aislamiento entre sedes, insumos y carta con costo, mesas, un pedido de punta a punta (mozo → cocina → servido con descuento de stock → anulación con merma → cuenta y mesa libre), almacén (compra, kardex, merma, conteo) y reportes con la exportación a Excel. Debe terminar en `0 fallos`. Deja datos nuevos en la base: antes de presentar, `docker compose down -v` y `docker compose up -d` para volver al seed.
+5. **Volver al seed:** las pruebas dejan datos nuevos en la base. Antes de presentar, `docker compose down -v` y `docker compose up -d` cargan de nuevo `docs/seed_demo.sql`.
 
 ### Usuarios de demo
 

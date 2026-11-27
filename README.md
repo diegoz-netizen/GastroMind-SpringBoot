@@ -53,7 +53,6 @@ flowchart LR
 - **Base de datos:** cargar `docs/script_database.sql` y luego `docs/seed_demo.sql`.
 - **Backend:** `cd backend-spring` y `./mvnw spring-boot:run`. Copiar antes `application-local.properties.example` a `application-local.properties` con tus credenciales.
 - **Web:** ver [`web-react/README.md`](web-react/README.md).
-- **Ensayo de la demo:** `bash docs/ensayo_demo.sh`.
 
 ## Despliegue
 
