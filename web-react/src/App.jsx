@@ -1,16 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
-import Reportes from './pages/Reportes';
 import Compras from './pages/Compras';
+import Mermas from './pages/Mermas';
 import Mesas from './pages/Mesas';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Empleados from './pages/Empleados';
 import RegistrarEmpleado from './pages/RegistrarEmpleado';
 import Insumos from './pages/Insumos';
-import Carta from './pages/Carta';
-import Receta from './pages/Receta';
 import OlvideContrasena from './pages/OlvideContrasena';
 import RestablecerContrasena from './pages/RestablecerContrasena';
 
@@ -57,25 +55,9 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      <Route
-        path="/carta"
-        element={
-          <PrivateRoute>
-            <Carta />
-          </PrivateRoute>
-        }
-      />
-      <Route path="/reportes" element={<PrivateRoute><Reportes /></PrivateRoute>} />
+      <Route path="/mermas" element={<PrivateRoute><Mermas /></PrivateRoute>} />
       <Route path="/compras" element={<PrivateRoute><Compras /></PrivateRoute>} />
       <Route path="/mesas" element={<PrivateRoute><Mesas /></PrivateRoute>} />
-      <Route
-        path="/carta/:id/receta"
-        element={
-          <PrivateRoute>
-            <Receta />
-          </PrivateRoute>
-        }
-      />
     </Routes>
   );
 }

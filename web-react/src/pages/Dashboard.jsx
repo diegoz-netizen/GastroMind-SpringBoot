@@ -1,261 +1,164 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import AlertasDeHoy from '../components/AlertasDeHoy';
 import { ROLES_CON_ALERTAS } from '../config/alertas';
+import { CATALOGO_WEB_URL } from '../config/api';
+import { API_SPRING, cantidadDe, conToken, enSoles, mensajeError, unidadDe } from '../config/reportes';
 import { Icono } from '../components/Marca';
-import {
-  CATALOGO, conToken, descargarExcel, enPorcentaje, enSoles, enSolesEnteros, fechaCorta, mensajeError, nombreMotivo, periodo,
-} from '../config/reportes';
+import { Resumen } from '../components/Visual';
 
-// Eje con coma: 1,5k desde mil soles; debajo, el monto en soles enteros
-const miles = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
-const eje = (valor) => (valor >= 1000 ? `${miles.format(valor / 1000)}k` : miles.format(Math.round(valor)));
-
-const PERIODOS = [
-  { dias: 0, texto: 'Este mes' },
-  { dias: 7, texto: '7 días' },
-  { dias: 30, texto: '30 días' },
-  { dias: 60, texto: '60 días' },
-];
-
-// Eje redondo por encima del valor más alto: 5 234 → 6 000
-const topeDelEje = (maximo) => {
-  if (!maximo) return 1;
-  const escala = 10 ** Math.floor(Math.log10(maximo));
-  return Math.ceil(maximo / escala) * escala;
+// Rediseño v2 (Operación): el panel de Spring responde "¿qué pasa hoy en mi local?".
+// El análisis de ventas, costos y mermas está en el panel de Catálogo (Django).
+const ESTADO_PLATILLO = {
+  PENDIENTE: ['Pendiente', 'gris'],
+  EN_PREPARACION: ['Preparando', 'ambar'],
+  LISTO: ['Listo', 'verde'],
+  SERVIDO: ['Servido', 'gris'],
+  ANULADO: ['Anulado', 'rojo'],
 };
+// Spring guarda la hora en UTC sin zona
+const minutosDesde = (fecha, ahora) => Math.max(0, Math.round((ahora - Date.parse(`${fecha}Z`)) / 60000));
+const tiempo = (min) => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`);
+const hora = (fecha) => new Date(`${fecha}Z`).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 
-// Una sola escala: ventas y costo son soles, así se comparan de verdad
-function BarrasPorSemana({ semanas }) {
-  const [activa, setActiva] = useState(null);
-  const tope = topeDelEje(Math.max(...semanas.flatMap((s) => [s.ventas, s.costo])));
-  return (
-    <>
-      <div className="leyenda">
-        <span><i style={{ background: '#2f8a63' }} />Ventas</span>
-        <span><i style={{ background: '#c98a1e' }} />Costo de insumos</span>
-      </div>
-      <div className="grafico">
-        {[1, 0.5, 0].map((f) => (
-          <div key={f}>
-            <div className="linea" style={{ top: `${(1 - f) * 100}%` }} />
-            <div className="eje" style={{ top: `${(1 - f) * 100}%` }}>{eje(tope * f)}</div>
-          </div>
-        ))}
-        {semanas.map((s) => (
-          <div key={s.numero} className="grupo" onMouseEnter={() => setActiva(s.numero)} onMouseLeave={() => setActiva(null)}>
-            <div className="marca" style={{ height: `${(s.ventas / tope) * 100}%`, background: '#2f8a63' }} />
-            <div className="marca" style={{ height: `${(s.costo / tope) * 100}%`, background: '#c98a1e' }} />
-            {activa === s.numero && (
-              <div className="globo">
-                Desde el {s.etiqueta}<br />Ventas {enSoles(s.ventas)}<br />Costo {enSoles(s.costo)}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="etiquetas">{semanas.map((s) => <span key={s.numero}>{s.etiqueta}</span>)}</div>
-      <details>
-        <summary className="enlace">Ver como tabla</summary>
-        <div className="tabla-caja">
-          <table className="tabla">
-            <thead><tr><th>Desde</th><th className="num">Ventas</th><th className="num">Costo</th></tr></thead>
-            <tbody>
-              {semanas.map((s) => (
-                <tr key={s.numero}><td>{s.etiqueta}</td><td className="num">{enSoles(s.ventas)}</td><td className="num">{enSoles(s.costo)}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
-    </>
-  );
-}
-
-// HU-23: ventas, costo, merma y margen bruto del periodo
-function PanelGerente({ token }) {
-  const [dias, setDias] = useState(0);
-  const [panel, setPanel] = useState(null);
+function Dashboard() {
+  const { auth } = useAuth();
+  const [mesas, setMesas] = useState([]);
+  const [pedidos, setPedidos] = useState([]);
+  const [compras, setCompras] = useState([]);
   const [error, setError] = useState('');
+  const [ahora, setAhora] = useState(() => Date.now());
+  const verAlertas = ROLES_CON_ALERTAS.includes(auth.rol?.toUpperCase());
 
+  const cargar = useCallback(async () => {
+    try {
+      const [m, p, c] = await Promise.all([
+        axios.get(`${API_SPRING}/mesas`, conToken(auth.token)),
+        axios.get(`${API_SPRING}/pedidos`, conToken(auth.token)),
+        axios.get(`${API_SPRING}/compras`, conToken(auth.token)).catch(() => ({ data: [] })),
+      ]);
+      setMesas(m.data);
+      setPedidos(p.data);
+      setCompras(c.data);
+      setAhora(Date.now());
+      setError('');
+    } catch (err) {
+      setError(mensajeError(err, 'No se pudo cargar el estado del local.'));
+    }
+  }, [auth.token]);
+
+  // Se actualiza solo cada 30 segundos, como la cocina
   useEffect(() => {
-    let vigente = true;
-    const pedido = { ...conToken(token), params: periodo(dias) };
-    // El panel de Django no trae los motivos: salen del reporte de merma (HU-19) del mismo periodo
-    Promise.all([
-      axios.get(`${CATALOGO}/reportes/panel/`, pedido),
-      axios.get(`${CATALOGO}/reportes/merma/`, pedido),
-    ])
-      .then(([p, m]) => {
-        if (!vigente) return;
-        setPanel({
-          ...p.data,
-          variacion_ventas: p.data.anterior?.variacion_ventas ?? null,
-          semanas: p.data.semanas.map((s, i) => ({
-            numero: i + 1, etiqueta: fechaCorta(s.desde), ventas: Number(s.ventas), costo: Number(s.costo),
-          })),
-          platillos: p.data.platillos.map((pl) => ({ ...pl, porcentaje: pl.porcentaje_costo })),
-          motivos: m.data.motivos,
-        });
-        setError('');
-      })
-      .catch((err) => { if (vigente) setError(mensajeError(err, 'No se pudo cargar el panel.')); });
-    return () => { vigente = false; };
-  }, [token, dias]);
+    cargar();
+    const id = setInterval(cargar, 30000);
+    return () => clearInterval(id);
+  }, [cargar]);
 
-  const exportar = () => descargarExcel(token, { tipo: 'merma', ...periodo(dias) })
-    .catch((err) => setError(mensajeError(err, 'No se pudo exportar.')));
+  const ocupadas = mesas.filter((m) => m.estado !== 'LIBRE').length;
+  const platillos = pedidos.flatMap((p) => p.detalles);
+  const listos = platillos.filter((d) => d.estado === 'LISTO').length;
+  const enCocina = platillos.filter((d) => d.estado === 'PENDIENTE' || d.estado === 'EN_PREPARACION').length;
+  const demorados = pedidos.filter((p) => minutosDesde(p.fechaRegistro, ahora) >= 25
+    && p.detalles.some((d) => d.estado === 'PENDIENTE' || d.estado === 'EN_PREPARACION')).length;
+  const pedidoDeMesa = Object.fromEntries(pedidos.map((p) => [p.mesaNumero, p]));
 
   return (
     <div className="pagina">
       <header className="cabecera">
         <div>
-          <h1>Panel</h1>
-          <p>{panel ? `Del ${fechaCorta(panel.desde)} al ${fechaCorta(panel.hasta)} · ventas, costo de insumos y merma` : 'Cargando...'}</p>
+          <h1>Hoy en el local</h1>
+          <p>{new Date().toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' })} · se actualiza cada 30 segundos</p>
         </div>
-        <div className="fila-acciones">
-          <div className="selector" role="group" aria-label="Periodo">
-            {PERIODOS.map((p) => (
-              <button key={p.dias} className={p.dias === dias ? 'activo' : ''} aria-pressed={p.dias === dias} onClick={() => setDias(p.dias)}>
-                {p.texto}
-              </button>
-            ))}
-          </div>
-          <button className="boton" onClick={exportar}>Exportar</button>
-        </div>
+        <a className="boton" href={CATALOGO_WEB_URL} target="_blank" rel="noreferrer">
+          <Icono d="M4 20V10M10 20V4M16 20v-7M22 20H2" /> Ver ventas y costos en Catálogo
+        </a>
       </header>
 
       {error && <div className="aviso error">{error}</div>}
 
-      {panel && (
-        <>
-          <section className="kpis">
-            <div className="kpi">
-              <i className="kpi-icono verde"><Icono d="M3 17l6-6 4 4 8-8M15 7h6v6" tamano={18} /></i>
-              <span>Ventas</span>
-              <b>{enSolesEnteros(panel.ventas)}</b>
-              <small>{panel.variacion_ventas === null ? 'Sin periodo anterior' : `${panel.variacion_ventas > 0 ? '+' : ''}${enPorcentaje(panel.variacion_ventas)} frente al periodo anterior`}</small>
+      <section className="resumenes">
+        <Resumen etiqueta="Mesas ocupadas" valor={`${ocupadas} de ${mesas.length}`} detalle={`${mesas.length - ocupadas} libres`} tono="ambar" />
+        <Resumen etiqueta="Platillos en cocina" valor={enCocina} detalle={`${pedidos.length} pedidos abiertos`} tono="azul" />
+        <Resumen etiqueta="Listos para servir" valor={listos} detalle={listos ? 'El mozo debe llevarlos' : 'Nada esperando'} tono={listos ? 'verde' : 'verde'} />
+        <Resumen etiqueta="Pedidos demorados" valor={demorados} detalle="Más de 25 minutos en cocina" tono={demorados ? 'rojo' : 'verde'} />
+      </section>
+
+      <div className="dos-columnas">
+        <div className="columna">
+          <section className="tarjeta">
+            <div className="titulo-tarjeta">
+              <h2>El salón ahora</h2>
+              <span className="leyenda-barras"><span><i className="muestra libre" />Libre</span><span><i className="muestra ocupada" />Ocupada</span></span>
             </div>
-            <div className="kpi">
-              <i className="kpi-icono ambar"><Icono d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8" tamano={18} /></i>
-              <span>Costo de insumos</span>
-              <b>{enSolesEnteros(panel.costo_insumos)}</b>
-              <small>{enPorcentaje(panel.costo_porcentaje)} de las ventas</small>
-            </div>
-            <div className="kpi">
-              <i className="kpi-icono rojo"><Icono d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" tamano={18} /></i>
-              <span>Merma</span>
-              <b>{enSolesEnteros(panel.merma)}</b>
-              <small>{enPorcentaje(panel.merma_porcentaje)} de las ventas</small>
-            </div>
-            <div className="kpi">
-              <i className="kpi-icono azul"><Icono d="M19 5L5 19M7 9.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17 19.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" tamano={18} /></i>
-              <span>Margen bruto</span>
-              <b>{enSolesEnteros(panel.margen)}</b>
-              <small>{enPorcentaje(panel.margen_porcentaje)} de las ventas</small>
+            <div className="mini-plano">
+              {mesas.map((m) => {
+                const p = pedidoDeMesa[m.numero];
+                const ocupada = m.estado !== 'LIBRE';
+                return (
+                  <div key={m.id} className={ocupada ? 'mini-mesa ocupada' : 'mini-mesa'} title={`Mesa ${m.numero} · ${m.zona} · ${m.capacidad} personas`}>
+                    <b>M{m.numero}</b>
+                    <small>{ocupada && p ? tiempo(minutosDesde(p.fechaRegistro, ahora)) : `${m.capacidad} pers.`}</small>
+                  </div>
+                );
+              })}
             </div>
           </section>
 
-          <div className="dos-columnas">
-            <section className="tarjeta">
-              <h2>Ventas y costo por semana</h2>
-              {panel.semanas.length > 0 ? <BarrasPorSemana semanas={panel.semanas} /> : <p className="vacio">Sin datos en este periodo.</p>}
-            </section>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <AlertasDeHoy token={token} />
-              <Link className="enlace" to="/compras">Ver sugerencia de compra</Link>
+          <section className="tarjeta">
+            <h2>Pedidos en curso</h2>
+            {pedidos.length === 0 && <p className="vacio">No hay pedidos abiertos.</p>}
+            <div className="pedidos-hoy">
+              {pedidos.map((p) => {
+                const vigentes = p.detalles.filter((d) => d.estado !== 'ANULADO');
+                const hechos = vigentes.filter((d) => d.estado === 'LISTO' || d.estado === 'SERVIDO').length;
+                const min = minutosDesde(p.fechaRegistro, ahora);
+                return (
+                  <article key={p.id} className={min >= 25 && hechos < vigentes.length ? 'pedido-hoy demorado' : 'pedido-hoy'}>
+                    <header>
+                      <span className="insignia-mesa">M{p.mesaNumero}</span>
+                      <div>
+                        <b>Mesa {p.mesaNumero}</b>
+                        <small>Pedido #{p.id} · {hora(p.fechaRegistro)} · {tiempo(min)}</small>
+                      </div>
+                    </header>
+                    <ul>
+                      {p.detalles.map((d) => {
+                        const [texto, tono] = ESTADO_PLATILLO[d.estado] ?? [d.estado, 'gris'];
+                        return <li key={d.id}><span>{d.cantidad}× {d.producto}</span><span className={`chip ${tono}`}>{texto}</span></li>;
+                      })}
+                    </ul>
+                    <div className="pista"><div className="relleno" style={{ width: `${vigentes.length ? (hechos / vigentes.length) * 100 : 0}%` }} /></div>
+                    <small className="ayuda">{hechos} de {vigentes.length} listos</small>
+                  </article>
+                );
+              })}
             </div>
-          </div>
-
-          <div className="dos-columnas">
-            <section className="tarjeta">
-              <div className="titulo-tarjeta">
-                <h2>Platillos más vendidos</h2>
-                <Link className="enlace" to="/carta">Ver la carta</Link>
-              </div>
-              <div className="tabla-caja">
-                <table className="tabla">
-                  <thead><tr><th>Platillo</th><th className="num">Vendidos</th><th className="num">Precio</th><th className="num">Costo</th><th className="num">% costo</th></tr></thead>
-                  <tbody>
-                    {panel.platillos.map((p) => (
-                      <tr key={p.id}>
-                        <td>{p.nombre}</td><td className="num">{p.vendidos}</td><td className="num">{enSoles(p.precio)}</td>
-                        <td className="num">{enSoles(p.costo)}</td><td className="num">{enPorcentaje(p.porcentaje)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-            <section className="tarjeta">
-              <div className="titulo-tarjeta">
-                <h2>Merma por motivo</h2>
-                <Link className="enlace" to="/reportes">Ver el reporte</Link>
-              </div>
-              {panel.motivos.length === 0 && <p className="vacio">Sin mermas en este periodo.</p>}
-              {panel.motivos.map((m) => (
-                <div key={m.motivo}>
-                  <div style={{ fontSize: 13.5, marginBottom: 4 }}>{nombreMotivo(m.motivo)}</div>
-                  <div className="barra-h">
-                    <div className="pista"><div className="relleno" style={{ width: `${m.porcentaje}%` }} /></div>
-                    <span className="valor">{enPorcentaje(m.porcentaje)}</span>
-                  </div>
-                </div>
-              ))}
-            </section>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// Qué hace cada rol en la app; en la web solo consulta
-const EN_LA_APP = {
-  MOZO: 'Los pedidos se toman en la app GastroMind con tu PIN: eliges la mesa, agregas los platillos y cierras la cuenta.',
-  COCINERO: 'Las comandas llegan solas a la app de cocina: ahí las pasas a Preparando y Listo, o las anulas con su motivo.',
-  ALMACENERO: 'Los ingresos de compra, las mermas y los conteos se registran en la app con tu PIN.',
-};
-
-const ACCESOS = [
-  { ruta: '/carta', titulo: 'Carta y recetas', texto: 'Los platillos de la sede, su precio y qué insumos lleva cada uno.' },
-  { ruta: '/insumos', titulo: 'Insumos y kardex', texto: 'El stock de hoy, el mínimo de cada insumo y lo que vence pronto.' },
-];
-
-function InicioPersonal({ auth, rol }) {
-  return (
-    <div className="pagina">
-      <header className="cabecera">
-        <div>
-          <h1>Hola, {auth.nombreCompleto}</h1>
-          <p>{auth.correo} · {auth.rol}</p>
+          </section>
         </div>
-      </header>
 
-      {EN_LA_APP[rol] && <div className="aviso info" role="note">{EN_LA_APP[rol]}</div>}
-
-      <section className="accesos">
-        {ACCESOS.map((a) => (
-          <Link key={a.ruta} to={a.ruta} className="tarjeta acceso">
-            <h2>{a.titulo}</h2>
-            <p className="ayuda">{a.texto}</p>
-            <span className="enlace">Abrir</span>
-          </Link>
-        ))}
-      </section>
-
-      {ROLES_CON_ALERTAS.includes(rol) && <AlertasDeHoy token={auth.token} />}
+        <div className="columna">
+          {verAlertas && <AlertasDeHoy token={auth.token} />}
+          <section className="tarjeta">
+            <h2>Últimas compras recibidas</h2>
+            {compras.length === 0 && <p className="vacio">Todavía no hay compras registradas.</p>}
+            <ul className="lista-compras">
+              {compras.slice(0, 6).map((c) => (
+                <li key={c.id}>
+                  <span className="icono-redondo verde"><Icono d="M3 7h11v9H3zM14 10h4l3 3v3h-7" /></span>
+                  <div>
+                    <b>{c.insumo} · {cantidadDe(c.cantidad)} {unidadDe(c.unidadMedida)}</b>
+                    <small>{c.proveedor} · {new Date(c.fechaRegistro).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}</small>
+                  </div>
+                  <span className="mono">{enSoles(c.costoTotal)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      </div>
     </div>
   );
-}
-
-function Dashboard() {
-  const { auth } = useAuth();
-  const rol = auth.rol?.toUpperCase();
-  if (rol === 'ADMINISTRADOR') return <PanelGerente token={auth.token} />;
-  return <InicioPersonal auth={auth} rol={rol} />;
 }
 
 export default Dashboard;
