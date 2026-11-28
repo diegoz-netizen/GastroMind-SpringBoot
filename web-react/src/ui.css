@@ -270,3 +270,140 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
   .ingreso-lema { font-size: 36px; max-width: 540px; }
   .ingreso-nota { color: #c9d6cf; max-width: 480px; }
 }
+
+/* ---------- Rediseño v2: pantallas prácticas (Insumos y kardex, Compras, Mermas y reportes) ---------- */
+.chip.rojo { background: var(--rojo-suave); color: #8a1c13; }
+.chip.gris { background: #eef0ec; color: var(--tinta-2); }
+.texto-verde { color: var(--verde); }
+.inicial { display: inline-grid; place-items: center; border-radius: 30%; font-weight: 800; flex: none; }
+.enlace-boton { background: none; border: 0; padding: 4px 0; color: var(--verde); font: inherit; font-weight: 700; font-size: 13.5px; cursor: pointer; }
+.enlace-boton:hover { text-decoration: underline; }
+
+/* Cuadros de resumen */
+.resumenes { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+.resumen-tile { position: relative; overflow: hidden; background: #fff; border: 1px solid var(--borde); border-radius: 16px; padding: 16px 18px 16px 22px; display: flex; flex-direction: column; gap: 4px; }
+.resumen-tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--verde); }
+.resumen-tile.ambar::before { background: var(--ambar); }
+.resumen-tile.rojo::before { background: var(--rojo); }
+.resumen-tile.azul::before { background: #3b63b5; }
+.resumen-tile span { font-size: 13px; color: var(--tinta-2); font-weight: 600; }
+.resumen-tile b { font-family: var(--mono); font-size: 28px; font-weight: 600; letter-spacing: -.5px; }
+.resumen-tile.rojo b { color: var(--rojo); }
+.resumen-tile.ambar b { color: #9a6410; }
+.resumen-tile small { font-size: 12.5px; color: var(--tinta-3); }
+
+/* Barra de herramientas: búsqueda, filtros rápidos y vista */
+.barra-herramientas { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.buscador { flex: 1 1 220px; max-width: 320px; border: 1px solid #d5dad5; border-radius: 12px; padding: 10px 14px; font: inherit; font-size: 14px; background: #fff; }
+.chips-filtro { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-filtro { border: 1px solid var(--borde); background: #fff; color: var(--tinta-2); border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.chip-filtro:hover { border-color: #b9c2bc; }
+.chip-filtro.activo { background: var(--tinta); border-color: var(--tinta); color: #fff; }
+.vistas { margin-left: auto; display: inline-flex; background: #e8ebe7; border-radius: 11px; padding: 3px; }
+.vistas button { border: 0; background: none; padding: 7px 14px; border-radius: 9px; font: inherit; font-size: 13px; font-weight: 700; color: var(--tinta-2); cursor: pointer; }
+.vistas button.activa { background: #fff; color: var(--tinta); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.campo.en-linea { flex-direction: row; align-items: center; gap: 8px; }
+
+/* Insumos en tarjetas */
+.rejilla-insumos { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.insumo-tarjeta { background: #fff; border: 1px solid var(--borde); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px; transition: box-shadow .15s, transform .15s; }
+.insumo-tarjeta:hover { box-shadow: 0 12px 28px -16px rgba(15,61,46,.35); transform: translateY(-1px); }
+.insumo-tarjeta.urgente { border-color: #f1c9c4; background: linear-gradient(180deg, #fff8f7, #fff 45%); }
+.insumo-tarjeta header { display: flex; gap: 12px; align-items: center; }
+.insumo-tarjeta h3 { margin: 0 0 4px; font-size: 15.5px; }
+.insumo-stock { display: flex; align-items: baseline; gap: 6px; }
+.insumo-stock b { font-family: var(--mono); font-size: 26px; font-weight: 600; }
+.insumo-stock span { color: var(--tinta-2); font-weight: 600; }
+.insumo-stock small { margin-left: auto; color: var(--tinta-3); font-size: 12.5px; }
+.insumo-estados { display: flex; flex-wrap: wrap; gap: 6px; min-height: 22px; }
+.insumo-tarjeta footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 10px; border-top: 1px solid #eef0ec; font-size: 13px; color: var(--tinta-2); }
+.nivel { position: relative; height: 10px; border-radius: 10px; background: #eef0ec; }
+.nivel-relleno { position: absolute; inset: 0 auto 0 0; border-radius: 10px; background: linear-gradient(90deg, var(--verde-medio), #3fa57f); }
+.nivel.cerca .nivel-relleno { background: linear-gradient(90deg, #d99a2b, var(--ambar-marca)); }
+.nivel.bajo .nivel-relleno { background: linear-gradient(90deg, #c2382c, #e0574a); }
+.nivel-minimo { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--tinta); opacity: .4; border-radius: 2px; }
+
+/* Panel lateral del kardex */
+.panel-fondo { position: fixed; inset: 0; z-index: 60; background: rgba(15, 30, 24, .45); display: flex; justify-content: flex-end; }
+.panel-lateral { width: min(600px, 100%); height: 100%; overflow-y: auto; background: var(--fondo); padding: 26px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; box-shadow: -20px 0 60px rgba(0,0,0,.25); }
+.panel-lateral section { background: #fff; border: 1px solid var(--borde); border-radius: 16px; padding: 16px; }
+.panel-lateral h3 { margin: 0 0 10px; font-size: 15px; }
+.panel-cabeza { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.panel-cabeza h2 { margin: 2px 0 6px; font-size: 24px; }
+.panel-cabeza p { margin: 0; color: var(--tinta-2); font-size: 14px; }
+.kicker { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--verde); }
+.linea { width: 100%; height: 130px; display: block; }
+.resumen-mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.resumen-mini div { display: flex; flex-direction: column; gap: 4px; }
+.resumen-mini span { font-size: 12px; color: var(--tinta-3); }
+.resumen-mini b { font-family: var(--mono); font-size: 17px; }
+.movimientos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.movimientos li { display: grid; grid-template-columns: 82px 1fr auto auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid #eef0ec; font-size: 13.5px; }
+.movimientos li:last-child { border: 0; }
+.mov-tipo { text-align: center; font-size: 11.5px; font-weight: 800; padding: 4px 6px; border-radius: 8px; }
+.mov-tipo.verde { background: var(--verde-suave); color: #0e3327; }
+.mov-tipo.gris { background: #eef0ec; color: var(--tinta-2); }
+.mov-tipo.rojo { background: var(--rojo-suave); color: #8a1c13; }
+.mov-tipo.azul { background: #eaf0fb; color: #2c4f97; }
+.mov-detalle { display: flex; flex-direction: column; min-width: 0; }
+.mov-detalle small { color: var(--tinta-3); font-size: 12px; }
+.mov-cantidad { font-weight: 600; }
+.mov-saldo { color: var(--tinta-2); min-width: 80px; text-align: right; }
+
+/* Compras: lista por proveedor, ranking y tarjetas de proveedores */
+.grupos-compra { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; }
+.grupo-compra { border: 1px solid var(--borde); border-radius: 16px; overflow: hidden; }
+.grupo-compra header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #f7f9f7; border-bottom: 1px solid var(--borde); }
+.grupo-compra header div { flex: 1; min-width: 0; }
+.grupo-compra h3 { margin: 0; font-size: 15px; }
+.grupo-compra header small { color: var(--tinta-3); font-size: 12.5px; }
+.grupo-compra header b { font-size: 16px; }
+.grupo-compra ul { list-style: none; margin: 0; padding: 4px 16px; }
+.grupo-compra li { display: grid; grid-template-columns: 1fr auto 86px; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f2ef; }
+.grupo-compra li:last-child { border: 0; }
+.compra-insumo { display: flex; flex-direction: column; min-width: 0; }
+.compra-insumo small { color: var(--tinta-3); font-size: 12px; }
+.compra-cantidad { font-size: 13px; color: var(--tinta-2); white-space: nowrap; }
+.compra-costo { text-align: right; font-size: 13.5px; }
+.al-dia, .formulario-plegable { margin-top: 14px; }
+.al-dia summary, .formulario-plegable summary { cursor: pointer; font-weight: 700; color: var(--verde); font-size: 14px; margin-bottom: 10px; }
+.ranking { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.ranking-fila { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid #eef0ec; border-radius: 14px; }
+.ranking-fila.mejor { border: 2px solid var(--verde); background: #f6faf8; }
+.ranking-puesto { width: 24px; height: 24px; border-radius: 50%; background: #eef0ec; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: var(--tinta-2); flex: none; }
+.ranking-fila.mejor .ranking-puesto { background: var(--verde); color: #fff; }
+.ranking-datos { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ranking-datos small { color: var(--tinta-3); font-size: 12px; font-weight: 500; }
+.ranking-total { display: flex; flex-direction: column; align-items: flex-end; font-size: 15px; }
+.ranking-total small { font-size: 12px; color: var(--tinta-3); font-weight: 500; }
+.ranking .pista, .comparativo .pista { position: relative; height: 9px; border-radius: 9px; background: #eef0ec; }
+.ranking .relleno, .comparativo .relleno { position: absolute; inset: 0 auto 0 0; border-radius: 9px; background: linear-gradient(90deg, var(--verde-medio), #3fa57f); }
+.relleno.ambar { background: linear-gradient(90deg, #d99a2b, var(--ambar-marca)) !important; }
+.relleno.alto { background: linear-gradient(90deg, #c2382c, #e0574a) !important; }
+.relleno.gris { background: #b9c2bc !important; }
+.rejilla-proveedores { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.proveedor-tarjeta { border: 1px solid var(--borde); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.proveedor-tarjeta header { display: flex; gap: 12px; align-items: center; }
+.proveedor-tarjeta h3 { margin: 0; font-size: 15px; }
+.proveedor-tarjeta header small { color: var(--tinta-3); font-size: 12.5px; }
+.proveedor-tarjeta.nuevo { border-style: dashed; background: #fafbf9; }
+
+/* Reportes: teórico contra real */
+.leyenda-barras { display: flex; gap: 14px; font-size: 12.5px; color: var(--tinta-2); }
+.muestra { display: inline-block; width: 12px; height: 8px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+.muestra.teorico { background: #b9c2bc; }
+.muestra.real { background: var(--verde-medio); }
+.comparativo { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.comparativo-fila { display: grid; grid-template-columns: minmax(180px, 220px) 1fr auto; gap: 16px; align-items: center; padding: 10px 12px; border-radius: 12px; }
+.comparativo-fila.resaltada { background: #fff6f5; }
+.comparativo-nombre { display: flex; gap: 10px; align-items: center; }
+.comparativo-barras { display: flex; flex-direction: column; gap: 5px; }
+.comparativo-barras .pista { height: 14px; }
+.comparativo-barras .pista span { position: absolute; left: calc(100% + 8px); top: -2px; font-family: var(--mono); font-size: 12px; color: var(--tinta-2); white-space: nowrap; }
+.comparativo-barras { padding-right: 90px; }
+@media (max-width: 700px) {
+  .comparativo-fila { grid-template-columns: 1fr; }
+  .grupo-compra li { grid-template-columns: 1fr auto; }
+  .compra-costo { grid-column: 2; }
+  .vistas { margin-left: 0; }
+}

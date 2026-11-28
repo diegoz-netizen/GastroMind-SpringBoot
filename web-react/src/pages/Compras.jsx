@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { CATALOGO, cantidadDe, conToken, enSoles, fechaCorta, mensajeError, unidadDe } from '../config/reportes';
+import { CATALOGO, cantidadDe, conToken, enSoles, enSolesEnteros, fechaCorta, mensajeError, unidadDe } from '../config/reportes';
+import { Inicial, Resumen } from '../components/Visual';
 
 const dias = (n) => `${n} ${n === 1 ? 'día' : 'días'}`;
 
@@ -81,52 +82,89 @@ function Compras() {
     }
   };
 
+  // Rediseño v2: la sugerencia como lista de compras agrupada por proveedor, con su subtotal
+  const costoDe = (f) => (f.proveedor ? Number(f.proveedor.precio_unitario) * Number(aComprar(f) || 0) + Number(f.proveedor.flete) : 0);
+  const porComprar = sugerencia?.filas.filter((f) => Number(aComprar(f)) > 0) ?? [];
+  const alDia = sugerencia?.filas.filter((f) => !(Number(aComprar(f)) > 0)) ?? [];
+  const grupos = Object.values(porComprar.reduce((acc, f) => {
+    const clave = f.proveedor?.proveedor ?? 'Sin proveedor';
+    acc[clave] = acc[clave] ?? { proveedor: clave, dias: f.proveedor?.tiempo_entrega_dias, filas: [] };
+    acc[clave].filas.push(f);
+    return acc;
+  }, {})).sort((x, y) => y.filas.length - x.filas.length);
+  const total = porComprar.reduce((suma, f) => suma + costoDe(f), 0);
+  const peor = comparacion?.opciones.reduce((m, o) => Math.max(m, Number(o.costo_total)), 0) || 1;
+
   return (
     <div className="pagina">
       <header className="cabecera">
         <div>
           <h1>Compras y proveedores</h1>
-          <p>Qué comprar esta semana y a quién conviene</p>
+          <p>Qué comprar esta semana, a quién y cuánto cuesta</p>
         </div>
+        <button className="boton primario" onClick={copiarLista} disabled={!sugerencia}>Copiar lista de compras</button>
       </header>
 
       {aviso && <div className={`aviso ${aviso.tipo}`} role="status">{aviso.texto}</div>}
 
-      <section className="tarjeta">
-        <div className="titulo-tarjeta">
-          <h2>Sugerencia de compra</h2>
-          <button className="boton" onClick={copiarLista} disabled={!sugerencia}>Copiar como lista</button>
-        </div>
-        {sugerencia && (
-          <p className="ayuda">
-            Para los próximos {sugerencia.dias} días, con {sugerencia.semanas} semanas de consumo ({fechaCorta(sugerencia.desde)} al {fechaCorta(sugerencia.hasta)}) y más peso en las 2 más recientes.
-            Comprar = consumo previsto + mínimo − stock, redondeado. Cada cantidad se puede cambiar antes de copiar.
-          </p>
-        )}
-        <div className="tabla-caja">
-          <table className="tabla">
-            <thead><tr><th>Insumo</th><th className="num">Stock</th><th className="num">Previsto</th><th className="num">Mínimo</th><th className="num">Comprar</th><th>Proveedor sugerido</th></tr></thead>
-            <tbody>
-              {sugerencia?.filas.map((f) => (
-                <tr key={f.id}>
-                  <td>{f.insumo}</td>
-                  <td className="num">{cantidadDe(f.stock)} {unidadDe(f.unidad)}</td>
-                  <td className="num">{cantidadDe(f.previsto)} {unidadDe(f.unidad)}</td>
-                  <td className="num">{cantidadDe(f.minimo)} {unidadDe(f.unidad)}</td>
-                  <td className="num">
-                    <input className="entrada-mini" type="number" min="0" aria-label={`Cantidad de ${f.insumo}`} value={aComprar(f)}
-                      onChange={(e) => setAjustes((a) => ({ ...a, [f.id]: e.target.value }))} /> {unidadDe(f.unidad)}
-                  </td>
-                  <td>{Number(aComprar(f)) > 0 ? (f.proveedor?.proveedor ?? 'Sin proveedor') : 'No hace falta'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <section className="resumenes">
+        <Resumen etiqueta="Insumos por comprar" valor={porComprar.length} detalle={`${alDia.length} ya alcanzan`} tono={porComprar.length ? 'ambar' : 'verde'} />
+        <Resumen etiqueta="Costo estimado" valor={enSolesEnteros(total)} detalle="Con el proveedor de menor costo" tono="verde" />
+        <Resumen etiqueta="Proveedores en la lista" valor={grupos.length} detalle={`${proveedores.length} registrados`} tono="azul" />
       </section>
 
       <section className="tarjeta">
-        <h2>Comparar proveedores</h2>
+        <div className="titulo-tarjeta">
+          <h2>Lista de compras por proveedor</h2>
+          {sugerencia && <span className="chip gris">Próximos {sugerencia.dias} días</span>}
+        </div>
+        {sugerencia && (
+          <p className="ayuda">
+            Calculada con {sugerencia.semanas} semanas de consumo ({fechaCorta(sugerencia.desde)} al {fechaCorta(sugerencia.hasta)}): consumo previsto + mínimo − stock.
+            Puedes cambiar cada cantidad antes de copiar la lista.
+          </p>
+        )}
+        <div className="grupos-compra">
+          {grupos.map((g) => (
+            <article key={g.proveedor} className="grupo-compra">
+              <header>
+                <Inicial texto={g.proveedor} tamano={38} />
+                <div>
+                  <h3>{g.proveedor}</h3>
+                  <small>{g.dias != null ? `Entrega en ${dias(g.dias)}` : 'Agrega su precio abajo'} · {g.filas.length} insumos</small>
+                </div>
+                <b className="mono">{enSoles(g.filas.reduce((suma, f) => suma + costoDe(f), 0))}</b>
+              </header>
+              <ul>
+                {g.filas.map((f) => (
+                  <li key={f.id}>
+                    <div className="compra-insumo">
+                      <b>{f.insumo}</b>
+                      <small>Stock {cantidadDe(f.stock)} · mín. {cantidadDe(f.minimo)} · previsto {cantidadDe(f.previsto)} {unidadDe(f.unidad)}</small>
+                    </div>
+                    <label className="compra-cantidad">
+                      <input className="entrada-mini" type="number" min="0" aria-label={`Cantidad de ${f.insumo}`} value={aComprar(f)}
+                        onChange={(e) => setAjustes((a) => ({ ...a, [f.id]: e.target.value }))} /> {unidadDe(f.unidad)}
+                    </label>
+                    <span className="mono compra-costo">{f.proveedor ? enSoles(costoDe(f)) : '—'}</span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+          {sugerencia && grupos.length === 0 && <p className="vacio">No hace falta comprar nada esta semana.</p>}
+        </div>
+        {alDia.length > 0 && (
+          <details className="al-dia">
+            <summary>Ya alcanzan ({alDia.length})</summary>
+            <div className="chips-filtro">{alDia.map((f) => <span key={f.id} className="chip verde">{f.insumo}</span>)}</div>
+          </details>
+        )}
+      </section>
+
+      <section className="tarjeta">
+        <h2>¿A quién le compro?</h2>
+        <p className="ayuda">Elige un insumo y la cantidad: los proveedores se ordenan por el costo total, con el flete incluido.</p>
         <div className="filtros">
           <label className="campo">Insumo
             <select value={insumoId} onChange={(e) => setInsumoId(e.target.value)}>
@@ -138,49 +176,63 @@ function Compras() {
           </label>
         </div>
         {comparacion?.opciones.length === 0 && <p className="vacio">Nadie vende este insumo todavía. Agrega un precio abajo.</p>}
-        <div className="opciones">
+        <div className="ranking">
           {comparacion?.opciones.map((o, i) => (
-            <div key={o.proveedor_id} className={o.sugerido ? 'opcion mejor' : 'opcion'}>
-              <div className="titulo-tarjeta">
-                <strong>{o.proveedor}</strong>
-                {o.sugerido && <span className="chip verde">Menor costo</span>}
+            <div key={o.proveedor_id} className={o.sugerido ? 'ranking-fila mejor' : 'ranking-fila'}>
+              <span className="ranking-puesto">{i + 1}</span>
+              <Inicial texto={o.proveedor} tamano={34} />
+              <div className="ranking-datos">
+                <b>{o.proveedor} {o.sugerido && <span className="chip verde">Menor costo</span>}</b>
+                <small>{enSoles(o.precio_unitario)} /{unidadDe(comparacion.unidad)} · flete {enSoles(o.flete)} · entrega en {dias(o.tiempo_entrega_dias)}</small>
+                <div className="pista"><div className="relleno" style={{ width: `${(Number(o.costo_total) / peor) * 100}%` }} /></div>
               </div>
-              <span>{enSoles(o.precio_unitario)} /{unidadDe(comparacion.unidad)} · flete {enSoles(o.flete)} · entrega en {dias(o.tiempo_entrega_dias)}</span>
-              <b>{enSoles(o.costo_total)}</b>
+              <b className="mono ranking-total">{enSoles(o.costo_total)}</b>
             </div>
           ))}
         </div>
-        <form className="filtros" onSubmit={guardarPrecio}>
-          <label className="campo">Proveedor
-            <select required value={precio.proveedor} onChange={(e) => setPrecio({ ...precio, proveedor: e.target.value })}>
-              <option value="">Elige</option>
-              {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
-          </label>
-          <label className="campo">Precio (S/)<input required type="number" step="0.01" min="0.01" value={precio.precio} onChange={(e) => setPrecio({ ...precio, precio: e.target.value })} /></label>
-          <label className="campo">Flete (S/)<input type="number" step="0.01" min="0" value={precio.flete} onChange={(e) => setPrecio({ ...precio, flete: e.target.value })} /></label>
-          <label className="campo">Días de entrega<input required type="number" min="0" value={precio.dias} onChange={(e) => setPrecio({ ...precio, dias: e.target.value })} /></label>
-          <button className="boton" type="submit">Guardar precio</button>
-        </form>
+        <details className="formulario-plegable">
+          <summary>Agregar o cambiar un precio</summary>
+          <form className="filtros" onSubmit={guardarPrecio}>
+            <label className="campo">Proveedor
+              <select required value={precio.proveedor} onChange={(e) => setPrecio({ ...precio, proveedor: e.target.value })}>
+                <option value="">Elige</option>
+                {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+            </label>
+            <label className="campo">Precio (S/)<input required type="number" step="0.01" min="0.01" value={precio.precio} onChange={(e) => setPrecio({ ...precio, precio: e.target.value })} /></label>
+            <label className="campo">Flete (S/)<input type="number" step="0.01" min="0" value={precio.flete} onChange={(e) => setPrecio({ ...precio, flete: e.target.value })} /></label>
+            <label className="campo">Días de entrega<input required type="number" min="0" value={precio.dias} onChange={(e) => setPrecio({ ...precio, dias: e.target.value })} /></label>
+            <button className="boton" type="submit">Guardar precio</button>
+          </form>
+        </details>
       </section>
 
       <section className="tarjeta">
         <h2>Proveedores</h2>
-        <div className="tabla-caja">
-          <table className="tabla">
-            <thead><tr><th>Nombre</th><th>Contacto</th><th className="num">Insumos con precio</th></tr></thead>
-            <tbody>
-              {proveedores.map((p) => (
-                <tr key={p.id}><td>{p.nombre}</td><td>{p.contacto ?? '—'}</td><td className="num">{p.precios.length}</td></tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="rejilla-proveedores">
+          {proveedores.map((p) => (
+            <article key={p.id} className="proveedor-tarjeta">
+              <header>
+                <Inicial texto={p.nombre} tamano={42} />
+                <div>
+                  <h3>{p.nombre}</h3>
+                  <small>{p.contacto ?? 'Sin contacto'}</small>
+                </div>
+              </header>
+              <div className="chips-filtro">
+                {p.precios.slice(0, 6).map((x) => <span key={x.id} className="chip gris">{x.insumo} · {enSoles(x.precio_unitario)}</span>)}
+                {p.precios.length > 6 && <span className="chip gris">+{p.precios.length - 6} más</span>}
+                {p.precios.length === 0 && <span className="chip ambar">Sin precios</span>}
+              </div>
+            </article>
+          ))}
+          <form className="proveedor-tarjeta nuevo" onSubmit={crearProveedor}>
+            <h3>Nuevo proveedor</h3>
+            <label className="campo">Nombre<input required maxLength={150} value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} /></label>
+            <label className="campo">Contacto<input maxLength={150} value={nuevo.contacto} onChange={(e) => setNuevo({ ...nuevo, contacto: e.target.value })} /></label>
+            <button className="boton primario" type="submit">Registrar proveedor</button>
+          </form>
         </div>
-        <form className="filtros" onSubmit={crearProveedor}>
-          <label className="campo">Nombre<input required maxLength={150} value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} /></label>
-          <label className="campo">Contacto<input maxLength={150} value={nuevo.contacto} onChange={(e) => setNuevo({ ...nuevo, contacto: e.target.value })} /></label>
-          <button className="boton primario" type="submit">Nuevo proveedor</button>
-        </form>
       </section>
     </div>
   );

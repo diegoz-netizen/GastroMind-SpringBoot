@@ -2,11 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import {
-  CATALOGO, cantidadDe, conSigno, conToken, descargarExcel, enPorcentaje, enSoles, fechaCorta, mensajeError, periodoDelMes, unidadDe } from '../config/reportes';
+  CATALOGO, cantidadDe, conSigno, conToken, descargarExcel, enPorcentaje, enSoles, enSolesEnteros, fechaCorta, mensajeError, nombreMotivo, periodo,
+  periodoDelMes, unidadDe } from '../config/reportes';
+import { Inicial, Resumen } from '../components/Visual';
+
+// Periodos rápidos (rediseño v2): 0 = el mes en curso
+const PERIODOS = [[0, 'Este mes'], [7, 'Últimos 7 días'], [30, 'Últimos 30 días']];
+const MOSTRAR = 8;
 
 const META_MERMA = 2;
-// Escala de las barras: 10 % = barra llena
-const ESCALA_BARRA = 10;
 
 // HU-19 % de merma, HU-20 teórico contra real, HU-24 exportar con los mismos filtros
 function Reportes() {
@@ -45,24 +49,43 @@ function Reportes() {
 
   const filasConsumo = consumo?.filas.filter((f) => !filtros.insumo || String(f.id) === filtros.insumo) ?? [];
 
+  // Rediseño v2: rankings en barras en vez de tablas; lo que más pesa, primero
+  const [todosMerma, setTodosMerma] = useState(false);
+  const [todosConsumo, setTodosConsumo] = useState(false);
+  const elegirPeriodo = (dias) => setFiltros((f) => ({ ...f, ...periodo(dias) }));
+  const filasMerma = [...(merma?.filas ?? [])].filter((f) => Number(f.merma) > 0).sort((x, y) => Number(y.costo_merma) - Number(x.costo_merma));
+  const maxMerma = Math.max(...filasMerma.map((f) => Number(f.costo_merma)), 1);
+  const motivos = [...(merma?.motivos ?? [])].sort((x, y) => Number(y.costo) - Number(x.costo));
+  const consumoOrdenado = [...filasConsumo].sort((x, y) => Math.abs(Number(y.porcentaje)) - Math.abs(Number(x.porcentaje)));
+  const aRevisar = filasConsumo.filter((f) => f.resaltar).length;
+  const porcentajeMerma = Number(merma?.total.porcentaje ?? 0);
+
   return (
     <div className="pagina">
       <header className="cabecera">
         <div>
-          <h1>Mermas y consumo</h1>
-          <p>Del {fechaCorta(filtros.desde)} al {fechaCorta(filtros.hasta)}</p>
+          <h1>Mermas y reportes</h1>
+          <p>Del {fechaCorta(filtros.desde)} al {fechaCorta(filtros.hasta)}: cuánto se pierde, por qué y dónde no cuadra el consumo</p>
         </div>
         <div className="fila-acciones">
-          <button className="boton" onClick={() => exportar('merma')}>Excel de merma</button>
-          <button className="boton" onClick={() => exportar('consumo')}>Excel de consumo</button>
-          <button className="boton" onClick={() => exportar('inventario')}>Excel de inventario</button>
+          <span className="ayuda">Descargar Excel:</span>
+          <button className="boton" onClick={() => exportar('merma')}>Merma</button>
+          <button className="boton" onClick={() => exportar('consumo')}>Consumo</button>
+          <button className="boton" onClick={() => exportar('inventario')}>Inventario</button>
         </div>
       </header>
 
-      <div className="filtros">
-        <label className="campo">Desde<input type="date" name="desde" value={filtros.desde} max={filtros.hasta} onChange={cambiar} /></label>
-        <label className="campo">Hasta<input type="date" name="hasta" value={filtros.hasta} min={filtros.desde} onChange={cambiar} /></label>
-        <label className="campo">Insumo
+      <div className="barra-herramientas">
+        <div className="chips-filtro">
+          {PERIODOS.map(([d, texto]) => {
+            const p = periodo(d);
+            const activo = p.desde === filtros.desde && p.hasta === filtros.hasta;
+            return <button key={d} type="button" className={activo ? 'chip-filtro activo' : 'chip-filtro'} onClick={() => elegirPeriodo(d)}>{texto}</button>;
+          })}
+        </div>
+        <label className="campo en-linea">Desde<input type="date" name="desde" value={filtros.desde} max={filtros.hasta} onChange={cambiar} /></label>
+        <label className="campo en-linea">Hasta<input type="date" name="hasta" value={filtros.hasta} min={filtros.desde} onChange={cambiar} /></label>
+        <label className="campo en-linea">Insumo
           <select name="insumo" value={filtros.insumo} onChange={cambiar}>
             <option value="">Todos</option>
             {insumos.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
@@ -72,59 +95,82 @@ function Reportes() {
 
       {error && <div className="aviso error">{error}</div>}
 
+      {merma && (
+        <section className="resumenes">
+          <Resumen etiqueta="Merma del periodo" valor={enPorcentaje(merma.total.porcentaje)} detalle={porcentajeMerma > META_MERMA ? `Sobre la meta de ${META_MERMA} %` : `Dentro de la meta de ${META_MERMA} %`} tono={porcentajeMerma > META_MERMA ? 'rojo' : 'verde'} />
+          <Resumen etiqueta="Dinero perdido" valor={enSoles(merma.total.costo_merma)} detalle="Costo de lo que se botó" tono="ambar" />
+          <Resumen etiqueta="Consumo de insumos" valor={enSolesEnteros(merma.total.costo_consumo)} detalle="Lo que salió del almacén" tono="azul" />
+          <Resumen etiqueta="Insumos a revisar" valor={aRevisar} detalle={`Real y teórico difieren más de ${consumo?.umbral ?? 5} %`} tono={aRevisar ? 'rojo' : 'verde'} />
+        </section>
+      )}
+
       <div className="mitades">
         <section className="tarjeta">
-          <div className="titulo-tarjeta">
-            <h2>Merma sobre el consumo</h2>
-            {merma && <span className={Number(merma.total.porcentaje) > META_MERMA ? 'chip ambar' : 'chip verde'}>{enPorcentaje(merma.total.porcentaje)} · meta {META_MERMA} %</span>}
+          <h2>¿Por qué se pierde?</h2>
+          <p className="ayuda">Del dinero perdido, cuánto fue por cada motivo.</p>
+          <div className="ranking">
+            {motivos.map((m) => (
+              <div key={m.motivo} className="ranking-fila">
+                <div className="ranking-datos">
+                  <b>{nombreMotivo(m.motivo)}</b>
+                  <div className="pista"><div className="relleno ambar" style={{ width: `${Math.min(100, Number(m.porcentaje))}%` }} /></div>
+                </div>
+                <b className="mono ranking-total">{enSoles(m.costo)}<small>{enPorcentaje(m.porcentaje)}</small></b>
+              </div>
+            ))}
+            {merma && motivos.length === 0 && <p className="vacio">Sin mermas en este periodo.</p>}
           </div>
-          <p className="ayuda">Merma ÷ consumo total del insumo. {merma && `Perdido en el periodo: ${enSoles(merma.total.costo_merma)}.`} La barra llena equivale a {ESCALA_BARRA} %.</p>
-          <div className="tabla-caja">
-            <table className="tabla">
-              <thead><tr><th>Insumo</th><th className="num">Consumo</th><th className="num">Merma</th><th style={{ minWidth: 140 }}>%</th></tr></thead>
-              <tbody>
-                {merma?.filas.map((f) => (
-                  <tr key={f.id}>
-                    <td>{f.insumo}</td>
-                    <td className="num">{cantidadDe(f.consumo)} {unidadDe(f.unidad)}</td>
-                    <td className="num">{cantidadDe(f.merma)} {unidadDe(f.unidad)}</td>
-                    <td>
-                      <div className="barra-h">
-                        <div className="pista">
-                          <div className={f.porcentaje > 5 ? 'relleno alto' : 'relleno'} style={{ width: `${Math.min(100, (f.porcentaje / ESCALA_BARRA) * 100)}%` }} />
-                        </div>
-                        <span className="valor">{enPorcentaje(f.porcentaje)}</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {merma?.filas.length === 0 && <p className="vacio">Sin movimientos en este periodo.</p>}
         </section>
 
         <section className="tarjeta">
-          <h2>Consumo teórico contra real</h2>
-          <p className="ayuda">Teórico = recetas × platillos servidos. Real = lo que salió del inventario, más lo que faltó en el último conteo físico. Se resaltan las diferencias mayores a {consumo?.umbral ?? 5} %.</p>
-          <div className="tabla-caja">
-            <table className="tabla">
-              <thead><tr><th>Insumo</th><th className="num">Teórico</th><th className="num">Real</th><th className="num">Diferencia</th></tr></thead>
-              <tbody>
-                {filasConsumo.map((f) => (
-                  <tr key={f.id} className={f.resaltar ? 'resaltada' : ''}>
-                    <td>{f.insumo}</td>
-                    <td className="num">{cantidadDe(f.teorico)} {unidadDe(f.unidad)}</td>
-                    <td className="num">{cantidadDe(f.real)} {unidadDe(f.unidad)}</td>
-                    <td className="num">{conSigno(f.diferencia)} {unidadDe(f.unidad)} · {conSigno(f.porcentaje)} %</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <h2>¿Qué se pierde más?</h2>
+          <p className="ayuda">Insumos por dinero perdido. El % es la merma sobre su consumo (meta {META_MERMA} %).</p>
+          <div className="ranking">
+            {(todosMerma ? filasMerma : filasMerma.slice(0, MOSTRAR)).map((f, i) => (
+              <div key={f.id} className="ranking-fila">
+                <span className="ranking-puesto">{i + 1}</span>
+                <Inicial texto={f.insumo} tamano={30} />
+                <div className="ranking-datos">
+                  <b>{f.insumo} <small>{cantidadDe(f.merma)} {unidadDe(f.unidad)} de {cantidadDe(f.consumo)}</small></b>
+                  <div className="pista"><div className={f.porcentaje > 5 ? 'relleno alto' : 'relleno'} style={{ width: `${(Number(f.costo_merma) / maxMerma) * 100}%` }} /></div>
+                </div>
+                <b className="mono ranking-total">{enSoles(f.costo_merma)}<small className={Number(f.porcentaje) > META_MERMA ? 'texto-rojo' : ''}>{enPorcentaje(f.porcentaje)}</small></b>
+              </div>
+            ))}
+            {merma && filasMerma.length === 0 && <p className="vacio">Sin mermas en este periodo.</p>}
           </div>
-          {filasConsumo.length === 0 && <p className="vacio">Sin platillos servidos en este periodo.</p>}
+          {filasMerma.length > MOSTRAR && (
+            <button type="button" className="enlace-boton" onClick={() => setTodosMerma((t) => !t)}>{todosMerma ? 'Ver menos' : `Ver los ${filasMerma.length}`}</button>
+          )}
         </section>
       </div>
+
+      <section className="tarjeta">
+        <div className="titulo-tarjeta">
+          <h2>Consumo teórico contra real</h2>
+          <div className="leyenda-barras"><span><i className="muestra teorico" />Teórico (recetas)</span><span><i className="muestra real" />Real (inventario)</span></div>
+        </div>
+        <p className="ayuda">Teórico = recetas × platillos servidos. Real = lo que salió del inventario, más lo que faltó en el último conteo. Primero, las diferencias más grandes; en rojo, las mayores a {consumo?.umbral ?? 5} %.</p>
+        <div className="comparativo">
+          {(todosConsumo ? consumoOrdenado : consumoOrdenado.slice(0, MOSTRAR)).map((f) => {
+            const tope = Math.max(Number(f.teorico), Number(f.real), 0.001);
+            return (
+              <div key={f.id} className={f.resaltar ? 'comparativo-fila resaltada' : 'comparativo-fila'}>
+                <div className="comparativo-nombre"><Inicial texto={f.insumo} tamano={30} /><b>{f.insumo}</b></div>
+                <div className="comparativo-barras">
+                  <div className="pista"><div className="relleno gris" style={{ width: `${(Number(f.teorico) / tope) * 100}%` }} /><span>{cantidadDe(f.teorico)} {unidadDe(f.unidad)}</span></div>
+                  <div className="pista"><div className={f.resaltar ? 'relleno alto' : 'relleno'} style={{ width: `${(Number(f.real) / tope) * 100}%` }} /><span>{cantidadDe(f.real)} {unidadDe(f.unidad)}</span></div>
+                </div>
+                <span className={f.resaltar ? 'chip rojo' : 'chip verde'}>{conSigno(f.diferencia)} {unidadDe(f.unidad)} · {conSigno(f.porcentaje)} %</span>
+              </div>
+            );
+          })}
+          {consumo && filasConsumo.length === 0 && <p className="vacio">Sin platillos servidos en este periodo.</p>}
+        </div>
+        {consumoOrdenado.length > MOSTRAR && (
+          <button type="button" className="enlace-boton" onClick={() => setTodosConsumo((t) => !t)}>{todosConsumo ? 'Ver menos' : `Ver los ${consumoOrdenado.length}`}</button>
+        )}
+      </section>
     </div>
   );
 }
