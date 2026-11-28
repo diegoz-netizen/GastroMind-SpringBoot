@@ -227,3 +227,46 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
   .ingreso { grid-template-columns: minmax(380px, 44%) 1fr; }
   .ingreso-lado { display: flex; flex-direction: column; justify-content: space-between; gap: 32px; padding: 48px; background: var(--tinta); }
 }
+
+/* ---------- Rediseño v2 (28/11): mismo diseño, con fotos, íconos y el logo de Victor ---------- */
+:root { --verde-medio: #2a7a5f; --verde-profundo: #0f3d2e; --ambar-marca: #f2a93b; }
+.marca-logo { border-radius: 22%; flex: none; }
+
+/* Menú: ícono por módulo y el activo con una rayita ámbar */
+.nav a { display: flex; align-items: center; gap: 11px; position: relative; }
+.nav a svg { opacity: .75; flex: none; }
+.nav a.activo { background: linear-gradient(90deg, rgba(42,122,95,.38), rgba(42,122,95,.12)); }
+.nav a.activo svg { opacity: 1; color: var(--ambar-marca); }
+.nav a.activo::before { content: ''; position: absolute; left: -14px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--ambar-marca); }
+
+/* Indicadores del panel con ícono en un círculo de color */
+.kpi { position: relative; padding-top: 18px; box-shadow: 0 1px 2px rgba(15,61,46,.04); }
+.kpi-icono { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 4px; font-style: normal; }
+.kpi-icono.verde { background: var(--verde-suave); color: var(--verde); }
+.kpi-icono.ambar { background: var(--ambar-suave); color: var(--ambar); }
+.kpi-icono.rojo { background: var(--rojo-suave); color: var(--rojo); }
+.kpi-icono.azul { background: #eaf0fb; color: #3b63b5; }
+
+/* Carta: foto del platillo junto al nombre */
+.platillo-celda { display: flex; align-items: center; gap: 12px; }
+.platillo-foto { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; flex: none; box-shadow: 0 2px 6px rgba(15,61,46,.15); }
+.platillo-foto.inicial { display: grid; place-items: center; font-weight: 800; font-size: 18px; box-shadow: none; }
+
+/* Ingreso: panel lateral con foto de la cocina, velo verde y el logo grande */
+.ingreso-tarjeta { border-radius: 20px; padding: 40px; box-shadow: 0 24px 60px -20px rgba(15,61,46,.22); }
+.ingreso-titulo { font-size: 28px; }
+.ingreso-tarjeta input { border-radius: 11px; padding-top: 12px; padding-bottom: 12px; background: #f7f8f6; }
+.ingreso-tarjeta button[type="submit"], .ingreso-tarjeta .boton.primario { border-radius: 12px; background: linear-gradient(135deg, var(--verde-medio), var(--verde)); box-shadow: 0 10px 20px -10px rgba(29,91,71,.7); }
+.ingreso-centro { display: grid; gap: 14px; }
+.ingreso-logo-grande { width: 112px; height: 112px; border-radius: 26px; filter: drop-shadow(0 18px 30px rgba(0,0,0,.35)); margin-bottom: 10px; }
+.ingreso-kicker { margin: 0; color: var(--ambar-marca); font-size: 12.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.ingreso-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.ingreso-chips li { display: flex; align-items: center; gap: 8px; padding: 9px 15px 9px 13px; border-radius: 999px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); color: #fff; font-size: 13px; font-weight: 600; }
+.ingreso-chips li svg { color: var(--ambar-marca); }
+@media (min-width: 1024px) {
+  .ingreso { grid-template-columns: minmax(420px, 48%) 1fr; }
+  .ingreso-lado { padding: 56px 64px;
+    background: linear-gradient(180deg, rgba(15,61,46,.55) 0%, rgba(15,61,46,.82) 55%, rgba(11,42,32,.97) 100%), url('/img/cocina.jpg') center / cover; }
+  .ingreso-lema { font-size: 36px; max-width: 540px; }
+  .ingreso-nota { color: #c9d6cf; max-width: 480px; }
+}

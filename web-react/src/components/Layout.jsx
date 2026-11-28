@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../ui.css';
-import { Marca } from './Marca';
+import { Icono, Marca } from './Marca';
 
 // Módulos del prototipo; cada rol ve lo que puede usar
 const MODULOS = [
-  { ruta: '/dashboard', texto: 'Panel' },
-  { ruta: '/carta', texto: 'Carta y recetas' },
-  { ruta: '/insumos', texto: 'Insumos y kardex' },
-  { ruta: '/compras', texto: 'Compras y proveedores', soloAdmin: true },
-  { ruta: '/reportes', texto: 'Mermas y reportes', soloAdmin: true },
-  { ruta: '/empleados', texto: 'Personal', soloAdmin: true },
-  { ruta: '/mesas', texto: 'Mesas del salón', soloAdmin: true },
+  { ruta: '/dashboard', texto: 'Panel', icono: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z' },
+  { ruta: '/carta', texto: 'Carta y recetas', icono: 'M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5zM8 7h7M8 11h5' },
+  { ruta: '/insumos', texto: 'Insumos y kardex', icono: 'M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8' },
+  { ruta: '/compras', texto: 'Compras y proveedores', soloAdmin: true, icono: 'M3 7h11v9H3zM14 10h4l3 3v3h-7M5.2 18a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0-3.6 0M15.2 18a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0-3.6 0' },
+  { ruta: '/reportes', texto: 'Mermas y reportes', soloAdmin: true, icono: 'M4 20V10M10 20V4M16 20v-7M22 20H2' },
+  { ruta: '/empleados', texto: 'Personal', soloAdmin: true, icono: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-3-5.5' },
+  { ruta: '/mesas', texto: 'Mesas del salón', soloAdmin: true, icono: 'M3 9h18M5 9v10M19 9v10M8 9V6h8v3' },
 ];
 
 const ESCRITORIO = '(min-width: 1024px)';
@@ -78,6 +78,7 @@ function Layout({ children }) {
         </div>
         {modulos.map((m) => (
           <NavLink key={m.ruta} to={m.ruta} className={({ isActive }) => (isActive ? 'activo' : '')}>
+            <Icono d={m.icono} tamano={18} />
             {m.texto}
           </NavLink>
         ))}

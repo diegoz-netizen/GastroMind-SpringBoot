@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2A7A5F"/><stop offset="1" stop-color="#0F3D2E"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="56" fill="url(#g)"/>
+  <!-- cloche -->
+  <path d="M40 160 A80 80 0 0 1 200 160 Z" fill="#FFFFFF"/>
+  <rect x="28" y="166" width="184" height="14" rx="7" fill="#FFFFFF"/>
+  <rect x="116" y="68" width="8" height="16" fill="#FFFFFF"/>
+  <circle cx="120" cy="64" r="10" fill="#F2A93B"/>
+  <!-- red de nodos dentro de la cloche: trayectoria ascendente tipo M -->
+  <g stroke="#1D5B47" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <polyline points="72,146 96,112 120,136 144,100 168,146"/>
+  </g>
+  <g fill="#1D5B47">
+    <circle cx="72" cy="146" r="8"/><circle cx="96" cy="112" r="8"/><circle cx="120" cy="136" r="8"/>
+    <circle cx="144" cy="100" r="8"/><circle cx="168" cy="146" r="8"/>
+  </g>
+  <circle cx="144" cy="100" r="8" fill="#F2A93B"/>
+  <!-- chispa -->
+  <path d="M190 52 L196 68 L212 74 L196 80 L190 96 L184 80 L168 74 L184 68 Z" fill="#F2A93B"/>
+</svg>

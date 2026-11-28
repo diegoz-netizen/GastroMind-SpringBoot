@@ -290,10 +290,15 @@ function Carta() {
                   return (
                     <tr key={platillo.id} className={activo ? undefined : 'apagada'}>
                       <td>
-                        {platillo.nombre}
-                        <small className={platillo.requiere_receta && platillo.detalles_receta.length === 0 ? 'sub texto-ambar' : 'sub'}>
-                          {detalle(platillo)}
-                        </small>
+                        <div className="platillo-celda">
+                          <FotoPlatillo nombre={platillo.nombre} />
+                          <div>
+                            {platillo.nombre}
+                            <small className={platillo.requiere_receta && platillo.detalles_receta.length === 0 ? 'sub texto-ambar' : 'sub'}>
+                              {detalle(platillo)}
+                            </small>
+                          </div>
+                        </div>
                       </td>
                       <td className="num">{soles(platillo.precio)}</td>
                       {esAdmin && <td className="num">{sinCosto ? '—' : soles(platillo.costo)}</td>}
@@ -329,3 +334,20 @@ function Carta() {
 }
 
 export default Carta;
+
+// Rediseño v2: foto del platillo si la hay (los de la carta de demo); si no, su inicial sobre un color propio
+const FOTOS = [
+  ['lomo saltado', 'lomo_saltado'],
+  ['ceviche', 'ceviche'],
+  ['arroz con pollo', 'arroz_con_pollo'],
+  ['papa a la huanca', 'papa_huancaina'],
+];
+const TONOS = [['#fdf3e2', '#b0751a'], ['#e6f1ec', '#1d5b47'], ['#f1ecfa', '#6d4bb8'], ['#eaf0fb', '#3b63b5'], ['#fcebeb', '#b23a3a']];
+
+function FotoPlatillo({ nombre }) {
+  const clave = nombre.toLowerCase();
+  const foto = FOTOS.find(([inicio]) => clave.startsWith(inicio));
+  if (foto) return <img className="platillo-foto" src={`/img/${foto[1]}.jpg`} alt="" />;
+  const [fondo, frente] = TONOS[[...nombre].reduce((suma, c) => suma + c.charCodeAt(0), 0) % TONOS.length];
+  return <span className="platillo-foto inicial" style={{ background: fondo, color: frente }}>{nombre.charAt(0)}</span>;
+}

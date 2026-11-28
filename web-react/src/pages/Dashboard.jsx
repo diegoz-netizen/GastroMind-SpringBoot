@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import AlertasDeHoy from '../components/AlertasDeHoy';
 import { ROLES_CON_ALERTAS } from '../config/alertas';
+import { Icono } from '../components/Marca';
 import {
   CATALOGO, conToken, descargarExcel, enPorcentaje, enSoles, enSolesEnteros, fechaCorta, mensajeError, nombreMotivo, periodo,
 } from '../config/reportes';
@@ -132,21 +133,25 @@ function PanelGerente({ token }) {
         <>
           <section className="kpis">
             <div className="kpi">
+              <i className="kpi-icono verde"><Icono d="M3 17l6-6 4 4 8-8M15 7h6v6" tamano={18} /></i>
               <span>Ventas</span>
               <b>{enSolesEnteros(panel.ventas)}</b>
               <small>{panel.variacion_ventas === null ? 'Sin periodo anterior' : `${panel.variacion_ventas > 0 ? '+' : ''}${enPorcentaje(panel.variacion_ventas)} frente al periodo anterior`}</small>
             </div>
             <div className="kpi">
+              <i className="kpi-icono ambar"><Icono d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8" tamano={18} /></i>
               <span>Costo de insumos</span>
               <b>{enSolesEnteros(panel.costo_insumos)}</b>
               <small>{enPorcentaje(panel.costo_porcentaje)} de las ventas</small>
             </div>
             <div className="kpi">
+              <i className="kpi-icono rojo"><Icono d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" tamano={18} /></i>
               <span>Merma</span>
               <b>{enSolesEnteros(panel.merma)}</b>
               <small>{enPorcentaje(panel.merma_porcentaje)} de las ventas</small>
             </div>
             <div className="kpi">
+              <i className="kpi-icono azul"><Icono d="M19 5L5 19M7 9.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17 19.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" tamano={18} /></i>
               <span>Margen bruto</span>
               <b>{enSolesEnteros(panel.margen)}</b>
               <small>{enPorcentaje(panel.margen_porcentaje)} de las ventas</small>
