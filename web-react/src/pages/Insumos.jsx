@@ -12,6 +12,8 @@ const API_URL = `${DJANGO_URL}/api/catalogo/insumos/`;
 
 const conToken = (token) => ({ headers: { Authorization: `Bearer ${token}` } });
 
+// Review 2: el costo y los vencimientos los ven administrador y almacenero
+const ROLES_QUE_VEN_COSTO = ['ADMINISTRADOR', 'ALMACENERO'];
 
 // Filtros rápidos de la vista (rediseño v2); 'vencer' depende de las alertas y se resuelve en la pantalla
 const FILTROS = [['todos', 'Todos'], ['bajo', 'Bajo el mínimo'], ['vencer', 'Por vencer'], ['receta', 'Receta'], ['libre', 'Libre']];
@@ -23,7 +25,7 @@ const FILTRO = {
   libre: (i) => i.tipo_control === 'LIBRE',
 };
 
-// HU-05: el encargado de almacén registra insumos con su unidad, costo y stock mínimo (CA-05)
+// Stock y kardex (Operación): consulta del stock de la sede; el alta del insumo (HU-05) está en el Catálogo
 function Insumos() {
   const [insumos, setInsumos] = useState([]);
   const [error, setError] = useState('');
